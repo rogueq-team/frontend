@@ -1,0 +1,182 @@
+/* Стили для страницы регистрации */
+.registration-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 2rem;
+}
+
+.registration-container {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  margin: 2rem auto;
+}
+
+.registration-container h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.user-type-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+.user-type-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid #007bff;
+  background-color: white;
+  color: #007bff;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.user-type-btn.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.user-type-btn:hover {
+  background-color: #e6f2ff;
+}
+
+.user-type-btn.active:hover {
+  background-color: #0056b3;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-weight: bold;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.agreements {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.agreement-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.agreement-item:last-child {
+  margin-bottom: 0;
+}
+
+.agreement-item input[type="checkbox"] {
+  margin-right: 10px;
+  margin-top: 2px;
+  transform: scale(1.1);
+}
+
+.agreement-item label {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #555;
+  cursor: pointer;
+  margin: 0;
+}
+
+.agreement-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.agreement-link:hover {
+  text-decoration: underline;
+}
+
+.captcha-container {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0;
+  transform: scale(0.9);
+  transform-origin: center;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.submit-btn:hover {
+  background-color: #0056b3;
+}
+
+.submit-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.register-links {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* Стили для ошибок валидации */
+.form-group input.error {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* Показываем ошибку в реальном времени для паролей */
+.form-group:has(.error-message) {
+  margin-bottom: 0.5rem;
+}

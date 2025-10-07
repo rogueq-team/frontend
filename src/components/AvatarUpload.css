@@ -1,0 +1,135 @@
+.avatar-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.avatar-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+  border: 3px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.avatar-container:hover {
+  border-color: #007bff;
+  transform: scale(1.05);
+}
+
+.avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: #6c757d;
+  border-radius: 50%;
+}
+
+.avatar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  border-radius: 50%;
+}
+
+.avatar-overlay.visible {
+  opacity: 1;
+}
+
+.upload-text {
+  color: white;
+  font-size: 0.8rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+.avatar-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.avatar-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.avatar-btn.primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.avatar-btn.primary:hover {
+  background-color: #0056b3;
+}
+
+.avatar-btn.danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.avatar-btn.danger:hover {
+  background-color: #c82333;
+}
+
+.avatar-hint {
+  text-align: center;
+  color: #6c757d;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.avatar-hint p {
+  margin: 0.25rem 0;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .avatar-container {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .avatar-placeholder {
+    font-size: 2.5rem;
+  }
+  
+  .avatar-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .avatar-btn {
+    width: 100%;
+    max-width: 200px;
+  }
+}
