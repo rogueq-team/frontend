@@ -1,124 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
 import AvatarUpload from './AvatarUpload';
+import ConfirmModal from './ConfirmModal'; // Создадим этот компонент
 import './Settings.css';
 
 function Settings() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
-  const [hasChanges, setHasChanges] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-
-  useEffect(() => {
-    window.scrollTo({
-      behavior:
-        "smooth",
-      left: 0,
-      top: 0
-    });
-  }, []);
-  useEffect(() => {
-    window.scrollTo({
-      behavior:
-        "smooth",
-      left: 0,
-      top: 0
-    });
-  }, [activeTab]);
-  // Исходные данные пользователя
-  const initialData = {
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: '',
-    company: user?.userType === 'advertiser' ? user?.name : '',
-    website: '',
-    description: '',
-    avatar: user?.avatar || '', // Добавляем аватар
-    socialLinks: {
-      youtube: '',
-      instagram: '',
-      telegram: '',
-      tiktok: '',
-      vk: ''
-    }
-  };
-
-  // тимурчик: react-hook-form
-  const [formData, setFormData] = useState(initialData);
-  const [initialFormData, setInitialFormData] = useState(initialData);
-
-  // Сравниваем текущие данные с исходными
-  useEffect(() => {
-    const hasFormChanged = JSON.stringify(formData) !== JSON.stringify(initialFormData);
-    setHasChanges(hasFormChanged);
-    if (hasFormChanged) {
-      setIsSaved(false);
-    }
-  }, [formData, initialFormData]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-
-    // тимурчик: ненадёжно
-    if (name.startsWith('social_')) {
-      const socialKey = name.replace('social_', '');
-      setFormData(prev => ({
-        ...prev,
-        socialLinks: {
-          ...prev.socialLinks,
-          [socialKey]: value
-        }
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
-
-  // Функция для изменения аватара
-  const handleAvatarChange = (newAvatar) => {
-    setFormData(prev => ({
-      ...prev,
-      avatar: newAvatar
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Сохранение настроек:', formData);
-
-    // Имитация сохранения
-    setInitialFormData(formData);
-    setHasChanges(false);
-    setIsSaved(true);
-
-    // Убираем сообщение об успехе через 3 секунды
-    setTimeout(() => setIsSaved(false), 3000);
-
-    alert('Настройки сохранены!');
-  };
-
-  const handleCancel = () => {
-    // Возвращаем исходные данные
-    setFormData(initialFormData);
-    setHasChanges(false);
-    setIsSaved(false);
-  };
-
-  const handleBackToDashboard = () => {
-    if (hasChanges) {
-      // тимурчик: бесячая фигня
-      const confirmLeave = window.confirm('У вас есть несохраненные изменения. Вы уверены, что хотите выйти?');
-      if (confirmLeave) {
-        navigate('/dashboard');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // Используем react-hook-form
+  const { register, watch, setValue, handleSubmit, formState: { isDirty }, reset } = useForm({
+    defaultValues: {
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: '',
+      website: '',
+      description: '',
+      avatar: user?.avatar || '',
+      socialLinks: {
+        youtube: '',
+        instagram: '',
+        telegram: '',
+        tiktok: '',
+        vk: ''
       }
+    }
+  });
+
+  // Следим за изменениями формы
+  const formData = watch();
+
+  // Прокрутка вверх
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [activeTab]);
+
+  // Обработчик аватара
+  const handleAvatarChange = (newAvatar) => {
+    setValue('avatar', newAvatar, { shouldDirty: true });
+  };
+
+  // Сохранение формы
+  const onSubmit = (data) => {
+    console.log('Сохранение настроек:', data);
+    reset(data); // Сбрасываем dirty состояние
+    // Здесь будет отправка на сервер
+  };
+
+  // Навигация с проверкой изменений
+  const handleBackToDashboard = () => {
+    if (isDirty) {
+      setShowConfirmModal(true);
     } else {
       navigate('/dashboard');
     }
+  };
+
+  const confirmLeave = () => {
+    setShowConfirmModal(false);
+    navigate('/dashboard');
+  };
+
+  const cancelLeave = () => {
+    setShowConfirmModal(false);
   };
 
   return (
@@ -134,12 +82,6 @@ function Settings() {
           </button>
           <h1>Настройки профиля</h1>
         </div>
-
-        {isSaved && (
-          <div className="success-message">
-            ✅ Настройки успешно сохранены!
-          </div>
-        )}
 
         <div className="settings-tabs">
           <button
@@ -164,13 +106,12 @@ function Settings() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="settings-form">
+        <form onSubmit={handleSubmit(onSubmit)} className="settings-form">
           {/* Вкладка основных данных */}
           {activeTab === 'profile' && (
             <div className="tab-content">
               <h2>Основная информация</h2>
 
-              {/* Блок аватара */}
               <div className="avatar-section">
                 <h3>Аватар профиля</h3>
                 <AvatarUpload
@@ -186,10 +127,8 @@ function Settings() {
                 <input
                   type="text"
                   id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
                   placeholder={user?.userType === 'advertiser' ? 'Введите название компании' : 'Введите ваше имя'}
+                  {...register('name')}
                 />
               </div>
 
@@ -198,10 +137,8 @@ function Settings() {
                 <input
                   type="email"
                   id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
                   placeholder="your@email.com"
+                  {...register('email')}
                 />
               </div>
 
@@ -210,10 +147,8 @@ function Settings() {
                 <input
                   type="tel"
                   id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
                   placeholder="+7 (999) 999-99-99"
+                  {...register('phone')}
                 />
               </div>
 
@@ -223,10 +158,8 @@ function Settings() {
                   <input
                     type="url"
                     id="website"
-                    name="website"
-                    value={formData.website}
-                    onChange={handleChange}
                     placeholder="https://example.com"
+                    {...register('website')}
                   />
                 </div>
               )}
@@ -237,17 +170,15 @@ function Settings() {
                 </label>
                 <textarea
                   id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
                   placeholder={user?.userType === 'advertiser' ? 'Расскажите о вашей компании...' : 'Расскажите о себе...'}
                   rows="4"
+                  {...register('description')}
                 />
               </div>
             </div>
           )}
 
-          {/* Вкладка социальных сетей (только для контентмейкеров) */}
+          {/* Вкладка социальных сетей */}
           {activeTab === 'social' && user?.userType === 'contentmaker' && (
             <div className="tab-content">
               <h2>Привязка социальных сетей</h2>
@@ -256,80 +187,26 @@ function Settings() {
               </p>
 
               <div className="social-grid">
-                <div className="social-input-group">
-                  <label htmlFor="social_youtube">
-                    <span className="social-icon">📺</span>
-                    YouTube
-                  </label>
-                  <input
-                    type="url"
-                    id="social_youtube"
-                    name="social_youtube"
-                    value={formData.socialLinks.youtube}
-                    onChange={handleChange}
-                    placeholder="https://youtube.com/c/yourchannel"
-                  />
-                </div>
-
-                <div className="social-input-group">
-                  <label htmlFor="social_instagram">
-                    <span className="social-icon">📷</span>
-                    Instagram
-                  </label>
-                  <input
-                    type="url"
-                    id="social_instagram"
-                    name="social_instagram"
-                    value={formData.socialLinks.instagram}
-                    onChange={handleChange}
-                    placeholder="https://instagram.com/yourprofile"
-                  />
-                </div>
-
-                <div className="social-input-group">
-                  <label htmlFor="social_telegram">
-                    <span className="social-icon">✈️</span>
-                    Telegram
-                  </label>
-                  <input
-                    type="url"
-                    id="social_telegram"
-                    name="social_telegram"
-                    value={formData.socialLinks.telegram}
-                    onChange={handleChange}
-                    placeholder="https://t.me/yourchannel"
-                  />
-                </div>
-
-                <div className="social-input-group">
-                  <label htmlFor="social_tiktok">
-                    <span className="social-icon">🎵</span>
-                    TikTok
-                  </label>
-                  <input
-                    type="url"
-                    id="social_tiktok"
-                    name="social_tiktok"
-                    value={formData.socialLinks.tiktok}
-                    onChange={handleChange}
-                    placeholder="https://tiktok.com/@yourprofile"
-                  />
-                </div>
-
-                <div className="social-input-group">
-                  <label htmlFor="social_vk">
-                    <span className="social-icon">👥</span>
-                    VK
-                  </label>
-                  <input
-                    type="url"
-                    id="social_vk"
-                    name="social_vk"
-                    value={formData.socialLinks.vk}
-                    onChange={handleChange}
-                    placeholder="https://vk.com/yourprofile"
-                  />
-                </div>
+                {['youtube', 'instagram', 'telegram', 'tiktok', 'vk'].map((platform) => (
+                  <div key={platform} className="social-input-group">
+                    <label htmlFor={`social_${platform}`}>
+                      <span className="social-icon">
+                        {platform === 'youtube' && '📺'}
+                        {platform === 'instagram' && '📷'}
+                        {platform === 'telegram' && '✈️'}
+                        {platform === 'tiktok' && '🎵'}
+                        {platform === 'vk' && '👥'}
+                      </span>
+                      {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                    </label>
+                    <input
+                      type="url"
+                      id={`social_${platform}`}
+                      placeholder={`https://${platform}.com/yourprofile`}
+                      {...register(`socialLinks.${platform}`)}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -338,41 +215,29 @@ function Settings() {
           {activeTab === 'security' && (
             <div className="tab-content">
               <h2>Безопасность</h2>
-
               <div className="form-group">
                 <label htmlFor="currentPassword">Текущий пароль</label>
                 <input
                   type="password"
                   id="currentPassword"
-                  name="currentPassword"
                   placeholder="Введите текущий пароль"
                 />
               </div>
-
               <div className="form-group">
                 <label htmlFor="newPassword">Новый пароль</label>
                 <input
                   type="password"
                   id="newPassword"
-                  name="newPassword"
                   placeholder="Введите новый пароль"
                 />
               </div>
-
               <div className="form-group">
                 <label htmlFor="confirmPassword">Подтвердите новый пароль</label>
                 <input
                   type="password"
                   id="confirmPassword"
-                  name="confirmPassword"
                   placeholder="Повторите новый пароль"
                 />
-              </div>
-
-              <div className="security-actions">
-                <button type="button" className="secondary-btn">
-                  Сменить пароль
-                </button>
               </div>
             </div>
           )}
@@ -380,18 +245,18 @@ function Settings() {
           <div className="form-actions">
             <button
               type="submit"
-              className={`save-btn ${hasChanges ? 'active' : 'inactive'}`}
-              disabled={!hasChanges}
+              className={`save-btn ${isDirty ? 'active' : 'inactive'}`}
+              disabled={!isDirty}
             >
-              {hasChanges ? '💾 Сохранить изменения' : '✅ Сохранено'}
+              {isDirty ? '💾 Сохранить изменения' : '✅ Сохранено'}
             </button>
 
             <div className="right-actions">
-              {hasChanges && (
+              {isDirty && (
                 <button
                   type="button"
                   className="cancel-btn"
-                  onClick={handleCancel}
+                  onClick={() => reset()}
                 >
                   🔄 Сбросить
                 </button>
@@ -407,6 +272,11 @@ function Settings() {
           </div>
         </form>
       </div>
+
+      {/* Кастомный модал вместо confirm */}
+      <button disabled={!isDirty}>
+        {isDirty ? '💾 Сохранить изменения' : '✅ Сохранено'}
+      </button>
     </div>
   );
 }
