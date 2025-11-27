@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import ReCAPTCHA from 'react-google-recaptcha';
 import './Register.css';
 
@@ -19,6 +20,9 @@ function Register() {
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [errors, setErrors] = useState({});
   const captchaRef = useRef(null);
+
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
   const SITE_KEY = '6LfHcNwrAAAAACoTMpIEaJZjM2EYq34Xezh-8jSc';
 
@@ -84,36 +88,61 @@ function Register() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    const formErrors = validateForm();
-    if (Object.keys(formErrors).length > 0) {
-      setErrors(formErrors);
-      alert('Пожалуйста, исправьте ошибки в форме');
-      return;
-    }
-    
-    if (!agreements.terms || !agreements.privacy) {
-      alert('Пожалуйста, примите все условия соглашения');
-      return;
-    }
+  e.preventDefault();
+  
+  console.log('1. Начало отправки формы');
+  
+  if (!agreements.terms || !agreements.privacy) {
+    alert('Пожалуйста, примите все условия соглашения');
+    return;
+  }
 
-    if (!captchaVerified) {
-      alert('Пожалуйста, подтвердите, что вы не робот');
-      return;
-    }
+  console.log('2. Проверка капчи');
+  
+  if (!captchaVerified) {
+    alert('Пожалуйста, подтвердите, что вы не робот');
+    return;
+  }
 
-    const captchaToken = captchaRef.current.getValue();
+  console.log('3. Капча пройдена, начинаем регистрацию');
+  
+  const captchaToken = captchaRef.current.getValue();
+  
+  console.log('=== ДАННЫЕ ДЛЯ РЕГИСТРАЦИИ ===');
+  console.log('Тип пользователя:', userType);
+  console.log('Имя:', formData.username);
+  console.log('Email:', formData.email);
+  console.log('Капча токен:', captchaToken);
+  console.log('==============================');
+  
+  try {
+    console.log('4. Вызов auth.register()');
     
-    console.log('=== ДАННЫЕ ДЛЯ РЕГИСТРАЦИИ ===');
-    console.log('Тип пользователя:', userType);
-    console.log('Имя:', formData.username);
-    console.log('Email:', formData.email);
-    console.log('Капча токен:', captchaToken);
-    console.log('==============================');
+    // Подготавливаем данные для регистрации
+    const userData = {
+      username: formData.username,
+      email: formData.email,
+      password: formData.password,
+      userType: userType
+    };
     
-    alert('Регистрация успешна!');
-  };
+    const result = await register(userData);
+    
+    console.log('5. Результат регистрации:', result);
+    
+    if (result.success) {
+      console.log('6. Регистрация успешна, переход в кабинет');
+      navigate('/dashboard');
+    } else {
+      console.log('7. Ошибка регистрации:', result.error);
+      alert(`Ошибка регистрации: ${result.error}`);
+    }
+    
+  } catch (error) {
+    console.log('8. Исключение при регистрации:', error);
+    alert('Произошла ошибка при регистрации');
+  }
+};
 
   // Проверяем пароли отдельно для отображения ошибки в реальном времени
   const passwordError = formData.confirmPassword && formData.password !== formData.confirmPassword 
