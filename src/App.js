@@ -8,6 +8,7 @@ import Register from './components/Register';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
+import Contacts from './components/Contacts';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -25,6 +26,7 @@ function AppContent() {
           <Route path="/about" element={<About />} />
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/contacts" element={<Contacts />} />
           <Route 
             path="/dashboard" 
             element={
