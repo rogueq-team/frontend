@@ -155,7 +155,7 @@ function Dashboard() {
                 <span>просмотров</span>
               </div>
             </div>
-
+            
             <div className="quick-actions">
               <h2>Быстрые действия</h2>
               <div className="action-buttons">
