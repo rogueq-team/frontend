@@ -1,21 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import OrdersList from './OrdersList';
 import './Dashboard.css';
 
 function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, getCurrentUser } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false); // ← ДОБАВИТЬ
+
+  // 🔄 ЗАГРУЗКА ДАННЫХ ПОЛЬЗОВАТЕЛЯ ПРИ ЗАХОДЕ В КАБИНЕТ
+  useEffect(() => {
+    // ✅ ПРЕДОТВРАЩАЕМ ПОВТОРНУЮ ЗАГРУЗКУ
+    if (dataLoaded) return;
+
+    const loadUserData = async () => {
+      console.log('🔄 Dashboard: Загружаем актуальные данные пользователя...');
+      setIsLoading(true);
+      
+      try {
+        const result = await getCurrentUser();
+        
+        if (result.success) {
+          console.log('✅ Dashboard: Данные пользователя обновлены:', result.user);
+          setDataLoaded(true); // ← ПОМЕЧАЕМ ЧТО ДАННЫЕ ЗАГРУЖЕНЫ
+        } else {
+          console.error('❌ Dashboard: Ошибка загрузки данных:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Dashboard: Исключение при загрузке:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [getCurrentUser, dataLoaded]); // ← ДОБАВИТЬ dataLoaded в зависимости
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  if (!user) {
-    return <div>Загрузка...</div>;
+  // 🔄 ТЕСТОВАЯ КНОПКА ДЛЯ РУЧНОЙ ПРОВЕРКИ
+  const handleTestGetCurrentUser = async () => {
+    console.log('🧪 Ручная проверка getCurrentUser...');
+    const result = await getCurrentUser();
+    console.log('🧪 Результат ручной проверки:', result);
+    
+    if (result.success) {
+      alert('✅ Данные успешно обновлены!\nПроверьте консоль для деталей');
+    } else {
+      alert(`❌ Ошибка: ${result.error}`);
+    }
+  };
+
+  if (!user || isLoading) {
+    return (
+      <div className="loading-container">
+        <div>🔄 Загрузка данных пользователя...</div>
+        <button 
+          className="test-btn"
+          onClick={handleTestGetCurrentUser}
+          style={{marginTop: '20px'}}
+        >
+          🧪 Тест: Проверить загрузку данных
+        </button>
+      </div>
+    );
   }
 
   const renderTabContent = () => {
@@ -29,15 +83,35 @@ function Dashboard() {
             <h2>Аналитика</h2>
             <p>Раздел аналитики находится в разработке</p>
             <p>Скоро здесь появятся графики и статистика по вашей активности</p>
+            
+            {/* 🔄 ТЕСТОВАЯ КНОПКА В РАЗДЕЛЕ АНАЛИТИКИ */}
+            <button 
+              className="test-btn"
+              onClick={handleTestGetCurrentUser}
+              style={{marginTop: '20px'}}
+            >
+              🧪 Проверить загрузку данных
+            </button>
           </div>
         );
       case 'overview':
       default:
         return (
           <>
+            {/* 🔄 ТЕСТОВАЯ КНОПКА В ОБЗОРЕ */}
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+              <h2>Обзор профиля</h2>
+              <button 
+                className="test-btn"
+                onClick={handleTestGetCurrentUser}
+              >
+                🧪 Обновить данные
+              </button>
+            </div>
+
             {/* Существующий контент дашборда */}
             <div className="user-info-card">
-              <h2>Профиль</h2>
+              <h3>Профиль</h3>
               <div className="user-details">
                 <div className="user-avatar">
                   {user.avatar ? (
@@ -50,7 +124,10 @@ function Dashboard() {
                   <p><strong>Имя:</strong> {user.name}</p>
                   <p><strong>Email:</strong> {user.email}</p>
                   <p><strong>Тип аккаунта:</strong> {user.userType === 'advertiser' ? 'Рекламодатель' : 'Контентмейкер'}</p>
-                  <p><strong>Дата регистрации:</strong> {user.registrationDate}</p>
+                  <p><strong>Дата регистрации:</strong> {user.  rationDate}</p>
+                  <p><strong>Баланс:</strong> {user.balance.toLocaleString()} ₽</p>
+                  {user.bio && <p><strong>О себе:</strong> {user.bio}</p>}
+                  {user.isVerified && <p><strong>✅ Верифицирован</strong></p>}
                 </div>
               </div>
             </div>
@@ -134,6 +211,9 @@ function Dashboard() {
     <div className="dashboard">
       <div className="dashboard-header">
         <h1>Личный кабинет {user.userType === 'advertiser' ? 'рекламодателя' : 'контентмейкера'}</h1>
+        <button className="logout-btn" onClick={handleLogout}>
+          Выйти
+        </button>
       </div>
 
       <div className="dashboard-tabs">

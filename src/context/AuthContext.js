@@ -29,131 +29,178 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Функция входа с реальным бэкендом
-  // Функция входа с реальным бэкендом
-const login = async (email, password, userType) => {
-  setIsLoading(true);
-  
-  try {
-    console.log('Logging in with:', { email, password, userType });
+  const login = async (email, password, userType) => {
+    setIsLoading(true);
     
-    // РЕАЛЬНЫЙ ЗАПРОС К БЭКЕНДУ
-    const response = await AspNetApiService.login(email, password);
-    
-    console.log('Login response:', response);
-    
-    if (response && response.Login) {
-      // Преобразуем UserType из строки обратно в наш формат
-      const userTypeFromBackend = response.UserType === "1" ? 'advertiser' : 'contentmaker';
+    try {
+      console.log('Logging in with:', { email, password, userType });
       
-      // Создаем объект пользователя для фронтенда
-      const userData = {
-        id: Date.now(), // временно
-        name: email.split('@')[0], // используем часть email как имя
-        email: response.Email,
-        userType: userTypeFromBackend,
-        avatar: userTypeFromBackend === 'advertiser' ? '🏢' : '🎬',
-        registrationDate: new Date().toISOString().split('T')[0],
-        balance: userTypeFromBackend === 'advertiser' ? 50000 : 15000,
-        campaigns: userTypeFromBackend === 'advertiser' ? 5 : 3,
-        statistics: {
-          views: 12500,
-          clicks: 345,
-          conversions: 28,
-          engagement: 4.2
-        },
-        // Сохраняем токены
-        token: response.JWTToken,
-        refreshToken: response.RefreshToken
-      };
+      // РЕАЛЬНЫЙ ЗАПРОС К БЭКЕНДУ
+      const response = await AspNetApiService.login(email, password);
       
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('authToken', response.JWTToken);
+      console.log('Login response:', response);
       
-      return { success: true, user: userData };
-    } else {
-      return { success: false, error: 'Неверный email или пароль' };
+      if (response && response.jwtToken) {
+        // Преобразуем UserType из строки обратно в наш формат
+        const userTypeFromBackend = response.userType === "Advertiser" ? 'advertiser' : 'contentmaker';
+        
+        // Создаем объект пользователя для фронтенда
+        const userData = {
+          id: Date.now(), // временно
+          name: email.split('@')[0], // используем часть email как имя
+          email: response.email,
+          userType: userTypeFromBackend,
+          avatar: userTypeFromBackend === 'advertiser' ? '🏢' : '🎬',
+          registrationDate: new Date().toISOString().split('T')[0],
+          balance: userTypeFromBackend === 'advertiser' ? 50000 : 15000,
+          campaigns: userTypeFromBackend === 'advertiser' ? 5 : 3,
+          statistics: {
+            views: 12500,
+            clicks: 345,
+            conversions: 28,
+            engagement: 4.2
+          },
+          // Сохраняем токены
+          token: response.jwtToken,
+          refreshToken: response.refreshToken
+        };
+        
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('authToken', response.jwtToken);
+        
+        return { success: true, user: userData };
+      } else {
+        return { success: false, error: 'Неверный email или пароль' };
+      }
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
     }
-    
-  } catch (error) {
-    console.error('Login error:', error);
-    return { success: false, error: error.message };
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   // Функция регистрации с реальным бэкендом
-const register = async (userData) => {
-  setIsLoading(true);
-  
-  try {
-    console.log('Registering user:', userData);
+  const register = async (userData) => {
+    setIsLoading(true);
     
-    // Подготавливаем данные для бэкенда
-    const backendUserData = {
-      name: userData.username,
-      login: userData.email,
-      email: userData.email,
-      password: userData.password,
-      role: 0, // всегда обычный пользователь
-       type: userData.userType === 'advertiser' ? 1 : 0
-    };
-    
-    // РЕАЛЬНЫЙ ЗАПРОС К БЭКЕНДУ
-    console.log('backendUserData:', backendUserData); // ← ДОБАВЬТЕ ЭТО
-    const response = await AspNetApiService.register(backendUserData);
-    
-    console.log('Register response:', response);
-    
-    if (response && response.jwtToken) {
-      // Преобразуем UserType из строки обратно в наш формат
-      const userTypeFromBackend = response.userType === "Advertiser" ? 'advertiser' : 'contentmaker';
-
-      // Создаем объект пользователя для фронтенда
-      const newUser = {
-        id: Date.now(),
+    try {
+      console.log('Registering user:', userData);
+      
+      // Подготавливаем данные для бэкенда
+      const backendUserData = {
         name: userData.username,
-        email: response.email, // email в camelCase
-        userType: userTypeFromBackend,
-        avatar: userTypeFromBackend === 'advertiser' ? '🏢' : '🎬',
-        registrationDate: new Date().toISOString().split('T')[0],
-        balance: 0,
-        campaigns: 0,
-        statistics: {
-          views: 0,
-          clicks: 0,
-          conversions: 0,
-          engagement: 0
-        },
-        // Сохраняем токены для будущих запросов
-        token: response.jwtToken, // jwtToken в camelCase
-        refreshToken: response.refreshToken // refreshToken в camelCase (если есть)
+        login: userData.email,
+        email: userData.email,
+        password: userData.password,
+        role: 0, // всегда обычный пользователь
+        type: userData.userType === 'advertiser' ? 1 : 0
       };
       
-      setUser(newUser);
-      localStorage.setItem('user', JSON.stringify(newUser));
+      // РЕАЛЬНЫЙ ЗАПРОС К БЭКЕНДУ
+      console.log('backendUserData:', backendUserData);
+      const response = await AspNetApiService.register(backendUserData);
       
-      // Сохраняем токен отдельно для API запросов
-      localStorage.setItem('authToken', response.JWTToken);
+      console.log('Register response:', response);
       
-      return { success: true, user: newUser };
-    } else {
-      return { success: false, error: 'Ошибка регистрации' };
+      if (response && response.jwtToken) {
+        // Преобразуем UserType из строки обратно в наш формат
+        const userTypeFromBackend = response.userType === "Advertiser" ? 'advertiser' : 'contentmaker';
+
+        // Создаем объект пользователя для фронтенда
+        const newUser = {
+          id: Date.now(),
+          name: userData.username,
+          email: response.email,
+          userType: userTypeFromBackend,
+          avatar: userTypeFromBackend === 'advertiser' ? '🏢' : '🎬',
+          registrationDate: new Date().toISOString().split('T')[0],
+          balance: 0,
+          campaigns: 0,
+          statistics: {
+            views: 0,
+            clicks: 0,
+            conversions: 0,
+            engagement: 0
+          },
+          // Сохраняем токены для будущих запросов
+          token: response.jwtToken,
+          refreshToken: response.refreshToken
+        };
+        
+        setUser(newUser);
+        localStorage.setItem('user', JSON.stringify(newUser));
+        
+        // Сохраняем токен отдельно для API запросов
+        localStorage.setItem('authToken', response.jwtToken);
+        
+        return { success: true, user: newUser };
+      } else {
+        return { success: false, error: 'Ошибка регистрации' };
+      }
+      
+    } catch (error) {
+      console.error('Register error:', error);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
     }
-    
-  } catch (error) {
-    console.error('Register error:', error);
-    return { success: false, error: error.message };
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
+
+  // Функция получения текущего пользователя
+  const getCurrentUser = async () => {
+    setIsLoading(true);
+    try {
+      console.log('Fetching current user data...');
+      const response = await AspNetApiService.getCurrentUser();
+      
+      console.log('Current user response:', response);
+      
+      if (response) {
+        // Преобразуем данные от бекенда в наш формат
+        const userData = {
+          id: response.id || Date.now(),
+          name: response.name,
+          email: response.email,
+          userType: response.type === 1 ? 'advertiser' : 'contentmaker',
+          avatar: response.avatarPath || (response.type === 1 ? '🏢' : '🎬'),
+          registrationDate: response.createdAt ? new Date(response.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          balance: response.balance || 0,
+          campaigns: 0,
+          statistics: {
+            views: 0,
+            clicks: 0,
+            conversions: 0,
+            engagement: 0
+          },
+          bio: response.bio,
+          socialLinks: response.socialLinks,
+          isVerified: response.isVerified,
+          login: response.login,
+          role: response.role
+        };
+        
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        return { success: true, user: userData };
+      } else {
+        return { success: false, error: 'Не удалось загрузить данные пользователя' };
+      }
+    } catch (error) {
+      console.error('Get current user error:', error);
+      return { success: false, error: error.message };
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Функция выхода
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('authToken');
   };
 
   // Функция обновления пользователя
@@ -169,6 +216,7 @@ const register = async (userData) => {
     register,
     logout,
     updateUser,
+    getCurrentUser, // ← ДОБАВЛЕНО
     isAuthenticated: !!user
   };
 
