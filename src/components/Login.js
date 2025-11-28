@@ -9,7 +9,8 @@ function Login() {
     password: ''
   });
   const [userType, setUserType] = useState('advertiser');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({}); // ← ДОБАВЛЕНО
+  const [isSubmitting, setIsSubmitting] = useState(false); // ← ДОБАВЛЕНО
   
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -20,24 +21,55 @@ function Login() {
       ...prevState,
       [name]: value
     }));
-    setError('');
+    // Очищаем ошибки при изменении
+    if (errors[name] || errors.submit) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        delete newErrors.submit;
+        return newErrors;
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!loginData.email || !loginData.password) {
-      setError('Заполните все поля');
+    // Валидация формы
+    const newErrors = {};
+    if (!loginData.email) newErrors.email = 'Email обязателен'; // ← ИСПРАВЛЕНО: formData → loginData
+    if (!loginData.password) newErrors.password = 'Пароль обязателен'; // ← ИСПРАВЛЕНО: formData → loginData
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
+    console.log('🔐 Начало авторизации');
+    
     try {
-      const result = await login(loginData.email, loginData.password, userType);
+      setIsSubmitting(true); // ← ИСПРАВЛЕНО: setIsLoading → setIsSubmitting
+      
+      const result = await login(loginData.email, loginData.password, userType); // ← ИСПРАВЛЕНО: formData → loginData
+      
+      console.log('🔐 Результат авторизации:', result);
+      
       if (result.success) {
+        console.log('✅ Авторизация успешна, переход в кабинет');
         navigate('/dashboard');
+      } else {
+        console.log('❌ Ошибка авторизации:', result.error);
+        // Показываем понятную ошибку
+        setErrors({ submit: result.error });
+        alert(`Ошибка авторизации: ${result.error}`);
       }
-    } catch (err) {
-      setError('Ошибка входа. Проверьте данные.');
+      
+    } catch (error) {
+      console.log('❌ Исключение при авторизации:', error);
+      setErrors({ submit: 'Произошла непредвиденная ошибка' });
+      alert('Произошла непредвиденная ошибка при авторизации');
+    } finally {
+      setIsSubmitting(false); // ← ИСПРАВЛЕНО: setIsLoading → setIsSubmitting
     }
   };
 
@@ -46,7 +78,8 @@ function Login() {
       <div className="login-container">
         <h2>Вход в аккаунт</h2>
         
-        {error && <div className="error-message global-error">{error}</div>}
+        {/* Показываем ошибки валидации */}
+        {errors.submit && <div className="error-message global-error">{errors.submit}</div>}
         
         <div className="user-type-selector">
           <button
@@ -74,8 +107,10 @@ function Login() {
               name="email"
               value={loginData.email}
               onChange={handleChange}
+              className={errors.email ? 'error' : ''}
               required
             />
+            {errors.email && <span className="error-message">{errors.email}</span>}
           </div>
 
           <div className="form-group">
@@ -86,16 +121,18 @@ function Login() {
               name="password"
               value={loginData.password}
               onChange={handleChange}
+              className={errors.password ? 'error' : ''}
               required
             />
+            {errors.password && <span className="error-message">{errors.password}</span>}
           </div>
 
           <button 
             type="submit" 
             className="submit-btn"
-            disabled={isLoading}
+            disabled={isLoading || isSubmitting} // ← ОБНОВЛЕНО
           >
-            {isLoading ? 'Вход...' : 'Войти'}
+            {isLoading || isSubmitting ? 'Вход...' : 'Войти'}
           </button>
         </form>
 

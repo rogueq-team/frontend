@@ -30,57 +30,95 @@ export const AuthProvider = ({ children }) => {
 
   // Функция входа с реальным бэкендом
   const login = async (email, password, userType) => {
-    setIsLoading(true);
+  setIsLoading(true);
+  
+  try {
+    console.log('Logging in with:', { email, password });
     
-    try {
-      console.log('Logging in with:', { email, password, userType });
+    // РЕАЛЬНЫЙ ЗАПРОС К БЭКЕНДУ
+    const response = await AspNetApiService.login(email, password);
+    
+    console.log('Login response:', response);
+    
+    // ✅ УСПЕШНАЯ АВТОРИЗАЦИЯ (200)
+    if (response && (response.jwTtoken || response.JWTtoken)) { // ← ИСПРАВЛЕНО: проверяем оба варианта
+      const token = response.jwTtoken || response.JWTtoken; // ← ИСПРАВЛЕНО: берем токен из правильного поля
       
-      // РЕАЛЬНЫЙ ЗАПРОС К БЭКЕНДУ
-      const response = await AspNetApiService.login(email, password);
+      // Преобразуем UserType из строки в наш формат
+      const userTypeFromBackend = response.user?.Type?.toLowerCase() || 
+                                 response.user?.type?.toLowerCase() || 'contentmaker';
+      const formattedUserType = userTypeFromBackend === 'advertiser' ? 'advertiser' : 
+                               userTypeFromBackend === 'both' ? 'contentmaker' : 'contentmaker';
       
-      console.log('Login response:', response);
+      // Создаем объект пользователя для фронтенда
+      const userData = {
+        id: response.user?.Id || response.user?.id || Date.now(),
+        name: response.user?.Login || response.user?.login || email.split('@')[0],
+        email: response.user?.Email || response.user?.email || email,
+        userType: formattedUserType,
+        avatar: formattedUserType === 'advertiser' ? '🏢' : '🎬',
+        registrationDate: new Date().toISOString().split('T')[0],
+        balance: formattedUserType === 'advertiser' ? 50000 : 15000,
+        campaigns: formattedUserType === 'advertiser' ? 5 : 3,
+        statistics: {
+          views: 12500,
+          clicks: 345,
+          conversions: 28,
+          engagement: 4.2
+        },
+        // Сохраняем токены
+        token: token,
+        refreshToken: response.RefreshToken || response.refreshToken,
+        // Сохраняем данные от бекенда
+        backendData: response
+      };
       
-      if (response && response.jwtToken) {
-        // Преобразуем UserType из строки обратно в наш формат
-        const userTypeFromBackend = response.userType === "Advertiser" ? 'advertiser' : 'contentmaker';
-        
-        // Создаем объект пользователя для фронтенда
-        const userData = {
-          id: Date.now(), // временно
-          name: email.split('@')[0], // используем часть email как имя
-          email: response.email,
-          userType: userTypeFromBackend,
-          avatar: userTypeFromBackend === 'advertiser' ? '🏢' : '🎬',
-          registrationDate: new Date().toISOString().split('T')[0],
-          balance: userTypeFromBackend === 'advertiser' ? 50000 : 15000,
-          campaigns: userTypeFromBackend === 'advertiser' ? 5 : 3,
-          statistics: {
-            views: 12500,
-            clicks: 345,
-            conversions: 28,
-            engagement: 4.2
-          },
-          // Сохраняем токены
-          token: response.jwtToken,
-          refreshToken: response.refreshToken
-        };
-        
-        setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('authToken', response.jwtToken);
-        
-        return { success: true, user: userData };
-      } else {
-        return { success: false, error: 'Неверный email или пароль' };
-      }
+      console.log('✅ Создан пользователь:', userData);
       
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setIsLoading(false);
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('authToken', token);
+      
+      return { 
+        success: true, 
+        user: userData,
+        message: 'Авторизация успешна!' 
+      };
+    } else {
+      // ❌ НЕОЖИДАННЫЙ ОТВЕТ
+      console.error('❌ Неизвестный формат ответа:', response);
+      return { 
+        success: false, 
+        error: 'Неизвестный формат ответа от сервера' 
+      };
     }
-  };
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    
+    // ❌ ОБРАБОТКА ОШИБОК 400/401
+    let errorMessage = 'Произошла ошибка при авторизации';
+    
+    if (error.message.includes('Неверный email или пароль') || 
+        error.message.includes('401') ||
+        error.message.includes('неверный')) {
+      errorMessage = 'Неверный email или пароль';
+    } else if (error.message.includes('Email обязателен') || 
+               error.message.includes('Пароль обязателен') ||
+               error.message.includes('валидации')) {
+      errorMessage = error.message;
+    } else {
+      errorMessage = error.message;
+    }
+    
+    return { 
+      success: false, 
+      error: errorMessage 
+    };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Функция регистрации с реальным бэкендом
   const register = async (userData) => {
@@ -216,7 +254,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     updateUser,
-    getCurrentUser, // ← ДОБАВЛЕНО
+    getCurrentUser, 
     isAuthenticated: !!user
   };
 

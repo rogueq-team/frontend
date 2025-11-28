@@ -104,11 +104,66 @@ class AspNetApiService {
   }
 
   async login(email, password) {
-    return this.request('/Auth/login', {
-      method: 'POST', 
-      body: JSON.stringify({ email, password }),
+  try {
+    console.log('🔐 Отправка данных авторизации:', { email, password });
+    
+    const response = await fetch(`${this.baseUrl}/Auth/Authentication`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email,
+        password: password
+      }),
     });
+
+    console.log('🔐 Response status:', response.status);
+    
+    // Обрабатываем разные статусы
+    if (response.status === 200) {
+      const data = await response.json();
+      console.log('✅ Успешная авторизация:', data);
+      return data;
+    } 
+    else if (response.status === 400) {
+      const errorText = await response.text();
+      let errorMessage = 'Ошибка валидации данных';
+      
+      if (errorText) {
+        try {
+          const errorData = JSON.parse(errorText);
+          // Может быть ModelState с ошибками валидации
+          if (errorData.errors) {
+            const validationErrors = Object.values(errorData.errors).flat();
+            errorMessage = validationErrors.join(', ') || 'Ошибка валидации';
+          } else {
+            errorMessage = errorData.message || errorText;
+          }
+        } catch {
+          errorMessage = errorText;
+        }
+      }
+      
+      console.log('❌ Ошибка 400:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    else if (response.status === 401) {
+      const errorText = await response.text();
+      const errorMessage = errorText || 'Неверный email или пароль';
+      console.log('❌ Ошибка 401:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    else {
+      const errorText = await response.text();
+      throw new Error(errorText || `HTTP error! status: ${response.status}`);
+    }
+    
+  } catch (error) {
+    console.error('🔐 API Error:', error);
+    throw error;
   }
+}
 
   // 👤 ПОЛЬЗОВАТЕЛИ
   async getUser(id) {
