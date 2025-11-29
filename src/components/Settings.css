@@ -359,3 +359,258 @@
   margin-bottom: 1.5rem;
   text-align: center;
 }
+.tab-btn.danger-tab {
+  color: #dc3545;
+  border-bottom-color: #dc3545;
+}
+
+.tab-btn.danger-tab:hover {
+  color: #c82333;
+  background-color: #fff5f5;
+}
+
+/* Опасная зона */
+.danger-zone {
+  padding: 2rem;
+  background-color: #fff5f5;
+  border-radius: 8px;
+  border: 2px solid #dc3545;
+}
+
+.danger-zone h2 {
+  color: #dc3545;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.danger-content {
+  text-align: center;
+}
+
+/* Предупреждающее сообщение */
+.warning-message {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.warning-message h3 {
+  color: #dc3545;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.warning-message p {
+  color: #721c24;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.warning-message ul {
+  color: #721c24;
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.warning-message li {
+  margin-bottom: 0.5rem;
+}
+
+.final-warning {
+  background-color: #f8d7da;
+  padding: 1rem;
+  border-radius: 4px;
+  border-left: 4px solid #dc3545;
+  margin-top: 1.5rem;
+}
+
+/* Кнопка удаления аккаунта */
+.delete-account-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.delete-account-btn:hover {
+  background-color: #c82333;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+/* Подтверждение удаления */
+.delete-confirmation {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid #f5c6cb;
+  text-align: center;
+}
+
+.delete-confirmation h3 {
+  color: #dc3545;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.delete-confirmation p {
+  color: #721c24;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.email-confirmation {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  margin: 1.5rem 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.confirmation-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.confirm-delete-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 180px;
+}
+
+.confirm-delete-btn:hover:not(:disabled) {
+  background-color: #c82333;
+  transform: translateY(-2px);
+}
+
+.confirm-delete-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cancel-delete-btn {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.cancel-delete-btn:hover:not(:disabled) {
+  background-color: #545b62;
+  transform: translateY(-2px);
+}
+
+.cancel-delete-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Адаптивность для опасной зоны */
+@media (max-width: 768px) {
+  .danger-zone {
+    padding: 1rem;
+    margin: 0 -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+  
+  .warning-message {
+    padding: 1.5rem;
+  }
+  
+  .delete-confirmation {
+    padding: 1.5rem;
+  }
+  
+  .confirmation-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .confirm-delete-btn,
+  .cancel-delete-btn {
+    min-width: 100%;
+    width: 100%;
+  }
+  
+  .delete-account-btn {
+    min-width: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .warning-message {
+    padding: 1rem;
+  }
+  
+  .delete-confirmation {
+    padding: 1rem;
+  }
+  
+  .email-confirmation {
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
+}
+
+/* Анимации для плавного появления */
+.danger-content {
+  animation: fadeIn 0.5s ease-in;
+}
+
+.delete-confirmation {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

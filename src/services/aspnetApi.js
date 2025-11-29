@@ -7,27 +7,43 @@ class AspNetApiService {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
-    
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    };
+  const url = `${this.baseUrl}${endpoint}`;
+  
+  const config = {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    ...options,
+  };
 
-    // Добавляем JWT токен авторизации
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+  let token = localStorage.getItem('authToken');
+  
+  if (!token) {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        token = user.token || user.Token;
+        if (token) {
+          localStorage.setItem('authToken', token); 
+        }
+      } catch (e) {
+        console.error('Error parsing user from localStorage:', e);
+      }
     }
+  }
+
+  if (token) {
+    const cleanToken = token.startsWith('Bearer ') ? token.substring(7) : token;
+    config.headers['Authorization'] = `Bearer ${cleanToken}`;
+    console.log('🔐 Добавлен Authorization header:', `Bearer ${cleanToken.substring(0, 20)}...`);
+  }
 
     try {
       console.log('Making request to:', url);
       const response = await fetch(url, config);
-      
-      // 🔄 АВТОМАТИЧЕСКОЕ ОБНОВЛЕНИЕ JWT ТОКЕНА
+
       if (response.status === 401 && token && !this.isRefreshing) {
         console.log('🔄 JWT токен истек, автоматически обновляем...');
         this.isRefreshing = true;
@@ -44,7 +60,6 @@ class AspNetApiService {
               const newToken = refreshResult.JwtToken || refreshResult.jwtToken;
               const newRefreshToken = refreshResult.RefreshToken || refreshResult.refreshToken;
               
-              // 🔄 ОБНОВЛЯЕМ ТОКЕНЫ В LOCALSTORAGE
               localStorage.setItem('authToken', newToken);
               if (user) {
                 user.token = newToken;
@@ -54,7 +69,6 @@ class AspNetApiService {
               
               console.log('✅ Токены обновлены, повторяем запрос...');
               
-              // Повторяем оригинальный запрос с новым токеном
               config.headers['Authorization'] = `Bearer ${newToken}`;
               const retryResponse = await fetch(url, config);
               
@@ -109,9 +123,6 @@ class AspNetApiService {
         }),
       });
 
-      console.log('🔄 Response status:', response.status);
-      
-      // Обрабатываем разные статусы
       if (response.status === 200) {
         const data = await response.json();
         console.log('✅ Успешное обновление токена:', data);
@@ -205,71 +216,120 @@ class AspNetApiService {
   }
 
   async getCurrentUser() {
-    return this.request('/Auth/me', {
+    return this.request('/Auth/Me', {
       method: 'GET'
     });
   }
 
   async login(email, password) {
+  try {
+    console.log('🔐 Отправка данных авторизации:', { email, password });
+    
+    const response = await fetch(`${this.baseUrl}/Auth/Authentication`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email,
+        password: password
+      }),
+    });
+
+    console.log('🔐 Response status:', response.status);
+    
+    const responseText = await response.text();
+    console.log('🔐 Response text:', responseText);
+    
+    let data;
     try {
-      console.log('🔐 Отправка данных авторизации:', { email, password });
-      
-      const response = await fetch(`${this.baseUrl}/Auth/Authentication`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email,
-          password: password
-        }),
-      });
-
-      console.log('🔐 Response status:', response.status);
-      
-      if (response.status === 200) {
-        const data = await response.json();
-        console.log('✅ Успешная авторизация:', data);
-        return data;
-      } 
-      else if (response.status === 400) {
-        const errorText = await response.text();
-        let errorMessage = 'Ошибка валидации данных';
-        
-        if (errorText) {
-          try {
-            const errorData = JSON.parse(errorText);
-            if (errorData.errors) {
-              const validationErrors = Object.values(errorData.errors).flat();
-              errorMessage = validationErrors.join(', ') || 'Ошибка валидации';
-            } else {
-              errorMessage = errorData.message || errorText;
-            }
-          } catch {
-            errorMessage = errorText;
-          }
-        }
-        
-        console.log('❌ Ошибка 400:', errorMessage);
-        throw new Error(errorMessage);
-      }
-      else if (response.status === 401) {
-        const errorText = await response.text();
-        const errorMessage = errorText || 'Неверный email или пароль';
-        console.log('❌ Ошибка 401:', errorMessage);
-        throw new Error(errorMessage);
-      }
-      else {
-        const errorText = await response.text();
-        throw new Error(errorText || `HTTP error! status: ${response.status}`);
-      }
-      
-    } catch (error) {
-      console.error('🔐 API Error:', error);
-      throw error;
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ Ошибка парсинга JSON:', parseError);
+      throw new Error('Неверный формат ответа от сервера');
     }
+    
+    if (response.status === 200) {
+      console.log('✅ Успешная авторизация. ВСЕ ПОЛЯ ОТВЕТА:', data);
+      
+      const token = data.JWTtoken || data.jwtToken || data.jwTtoken || data.token || data.JwtToken || data.accessToken;
+      
+      if (!token) {
+        console.error('❌ Токен не найден в ответе. Все поля:', Object.keys(data));
+        throw new Error('Токен не получен от сервера');
+      }
+      
+      const refreshToken = data.RefreshToken || data.refreshToken;
+      
+      console.log('🔐 Полученные токены:', { token, refreshToken });
+      
+      const userDataFromBackend = data.user || data;
+      const isDeleted = userDataFromBackend.deleted_at !== null && 
+                       userDataFromBackend.deleted_at !== undefined;
+      
+      console.log('🔍 Проверка deleted_at:', userDataFromBackend.deleted_at);
+      console.log('🔍 Аккаунт удален?:', isDeleted);
+      
+      if (isDeleted) {
+        console.log('❌ Аккаунт помечен как удаленный в БД');
+        localStorage.removeItem('user');
+        localStorage.removeItem('authToken');
+        throw new Error('Этот аккаунт был удален. Восстановление невозможно.');
+      }
+      
+      return data;
+    } 
+    else if (response.status === 400 || response.status === 401) {
+      const errorMessage = data.message || data.error || 'Ошибка авторизации';
+      console.log('❌ Ошибка авторизации:', errorMessage);
+      throw new Error(errorMessage);
+    }
+    else {
+      throw new Error(data.message || `HTTP error! status: ${response.status}`);
+    }
+    
+  } catch (error) {
+    console.error('🔐 API Error:', error);
+    throw error;
   }
+}
 
+async deleteUser() {
+  try {
+    console.log('🗑️ Отправка запроса на удаление пользователя...');
+    
+    const endpoint = '/Auth/Delete';
+    
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+    });
+
+    
+    const responseText = await response.text();
+    console.log('🗑️ Response text:', responseText);
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log('🗑️ Parsed response data:', data);
+    } catch (parseError) {
+      console.log('🗑️ Response is not JSON:', responseText);
+      throw new Error('Неверный формат ответа от сервера');
+    }
+    
+    if (response.status === 200) {
+      console.log('✅ Пользователь успешно удален:', data);
+      return data;
+    } 
+  } catch (error) {
+    console.error('🗑️ API Error:', error);
+    throw error;
+  }
+}
   // 👤 ПОЛЬЗОВАТЕЛИ
   async getUser(id) {
     return this.request(`/User/${id}`);
@@ -294,5 +354,7 @@ class AspNetApiService {
     });
   }
 } 
+
+
 
 export default new AspNetApiService();

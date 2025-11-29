@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../context/AuthContext';
 import AvatarUpload from './AvatarUpload';
-import ConfirmModal from './ConfirmModal'; // Создадим этот компонент
+import ConfirmModal from './ConfirmModal';
 import './Settings.css';
 
 function Settings() {
-  const { user } = useAuth();
+  const { user, deleteAccount } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isDeleteConfirm, setIsDeleteConfirm] = useState(false); // ← ДОБАВИТЬ
+  const [deleteLoading, setDeleteLoading] = useState(false); // ← ДОБАВИТЬ
   
   // Используем react-hook-form
   const { register, watch, setValue, handleSubmit, formState: { isDirty }, reset } = useForm({
@@ -47,8 +49,7 @@ function Settings() {
   // Сохранение формы
   const onSubmit = (data) => {
     console.log('Сохранение настроек:', data);
-    reset(data); // Сбрасываем dirty состояние
-    // Здесь будет отправка на сервер
+    reset(data);
   };
 
   // Навигация с проверкой изменений
@@ -67,6 +68,49 @@ function Settings() {
 
   const cancelLeave = () => {
     setShowConfirmModal(false);
+  };
+
+  // 🔥 ФУНКЦИЯ УДАЛЕНИЯ АККАУНТА
+  const handleDeleteAccount = async () => {
+    if (!isDeleteConfirm) {
+      setIsDeleteConfirm(true);
+      return;
+    }
+
+    setDeleteLoading(true);
+    
+    const finalConfirm = window.confirm(
+      '⚠️ ВНИМАНИЕ! Это действие необратимо.\n\n' +
+      'Все ваши данные будут безвозвратно удалены.\n' +
+      'Вы уверены, что хотите удалить аккаунт?'
+    );
+
+    if (!finalConfirm) {
+      setIsDeleteConfirm(false);
+      setDeleteLoading(false);
+      return;
+    }
+
+    try {
+      const result = await deleteAccount();
+      
+      if (result.success) {
+        alert('✅ Аккаунт успешно удален');
+        // 🔥 ПРИНУДИТЕЛЬНЫЙ ПЕРЕХОД НА ГЛАВНУЮ
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+      } else {
+        alert(`❌ Ошибка: ${result.error}`);
+        setIsDeleteConfirm(false);
+      }
+    } catch (error) {
+      console.error('Ошибка при удалении:', error);
+      alert('❌ Произошла ошибка при удалении аккаунта');
+      setIsDeleteConfirm(false);
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   return (
@@ -103,6 +147,12 @@ function Settings() {
             onClick={() => setActiveTab('security')}
           >
             Безопасность
+          </button>
+          <button
+            className={`tab-btn ${activeTab === 'danger' ? 'active danger-tab' : ''}`}
+            onClick={() => setActiveTab('danger')}
+          >
+            ⚠️ Удаление
           </button>
         </div>
 
@@ -242,6 +292,68 @@ function Settings() {
             </div>
           )}
 
+          {/* 🔥 ВКЛАДКА УДАЛЕНИЯ АККАУНТА */}
+          {activeTab === 'danger' && (
+            <div className="tab-content danger-zone">
+              <h2>⚠️ Удаление аккаунта</h2>
+              <div className="danger-content">
+                <div className="warning-message">
+                  <h3>🚨 Внимание! Это необратимое действие</h3>
+                  <p>При удалении аккаунта будут безвозвратно удалены:</p>
+                  <ul>
+                    <li>• Все ваши личные данные</li>
+                    <li>• История заказов и кампаний</li>
+                    <li>• Статистика и аналитика</li>
+                    <li>• Привязанные социальные сети</li>
+                    <li>• Баланс и финансовые операции</li>
+                  </ul>
+                  <p className="final-warning">
+                    <strong>Это действие нельзя отменить!</strong>
+                  </p>
+                </div>
+
+                {!isDeleteConfirm ? (
+                  <button
+                    type="button"
+                    className="delete-account-btn"
+                    onClick={handleDeleteAccount}
+                    disabled={deleteLoading}
+                  >
+                    {deleteLoading ? 'Загрузка...' : '🗑️ Удалить аккаунт'}
+                  </button>
+                ) : (
+                  <div className="delete-confirmation">
+                    <h3>❌ Вы уверены?</h3>
+                    <p>Для подтверждения удаления введите ваш email:</p>
+                    <div className="email-confirmation">
+                      <strong>{user?.email}</strong>
+                    </div>
+                    <p>Это действие окончательно и не может быть отменено.</p>
+                    
+                    <div className="confirmation-buttons">
+                      <button
+                        type="button"
+                        className="confirm-delete-btn"
+                        onClick={handleDeleteAccount}
+                        disabled={deleteLoading}
+                      >
+                        {deleteLoading ? 'Удаление...' : '✅ Да, удалить аккаунт'}
+                      </button>
+                      <button
+                        type="button"
+                        className="cancel-delete-btn"
+                        onClick={() => setIsDeleteConfirm(false)}
+                        disabled={deleteLoading}
+                      >
+                        ❌ Отмена
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="form-actions">
             <button
               type="submit"
@@ -273,10 +385,13 @@ function Settings() {
         </form>
       </div>
 
-      {/* Кастомный модал вместо confirm */}
-      <button disabled={!isDirty}>
-        {isDirty ? '💾 Сохранить изменения' : '✅ Сохранено'}
-      </button>
+      {showConfirmModal && (
+        <ConfirmModal
+          message="У вас есть несохраненные изменения. Вы уверены, что хотите уйти?"
+          onConfirm={confirmLeave}
+          onCancel={cancelLeave}
+        />
+      )}
     </div>
   );
 }
