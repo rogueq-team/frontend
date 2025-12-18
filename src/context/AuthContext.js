@@ -201,8 +201,10 @@ const login = async (email, password, userType) => {
       const response = await AspNetApiService.register(backendUserData);
       
       console.log('Register response:', response);
+
+      const token = response.jwtToken || response.JWTToken;
       
-      if (response && response.JWTToken) {
+      if (response && token) {
         const userTypeFromBackend = response.UserType === "Advertiser" ? 'advertiser' : 'contentmaker';
 
         const newUser = {
@@ -220,8 +222,8 @@ const login = async (email, password, userType) => {
             conversions: 0,
             engagement: 0
           },
-          token: response.JWTToken,
-          refreshToken: response.RefreshToken,
+          token: token,
+          refreshToken: response.RefreshToken || response.refreshToken,
           backendData: response
         };
         
@@ -387,6 +389,98 @@ const testEndpoints = async () => {
     }
   };
 
+  // AuthContext.js - в функции updateUserInfo
+const updateUserInfo = async (userData) => {
+  setIsLoading(true);
+  
+  try {
+    console.log('🔄 Отправка обновленных данных пользователя:', userData);
+    
+    if (!user?.id) {
+      throw new Error('Пользователь не авторизован');
+    }
+
+    // 🔥 ПРАВИЛЬНО ФОРМИРУЕМ SocialLinks
+    let socialLinks = null;
+    if (userData.socialLinks && Array.isArray(userData.socialLinks)) {
+      // Если это массив строк - оставляем как есть
+      socialLinks = userData.socialLinks;
+    } else if (userData.socialLinks && typeof userData.socialLinks === 'object') {
+      // Если это объект {youtube: "...", instagram: "..."} - преобразуем в массив
+      socialLinks = Object.values(userData.socialLinks)
+        .filter(link => link && link.trim() !== '');
+    }
+
+    const backendData = {
+      name: userData.name || user.name,
+      login: userData.login || user.login || user.email,
+      email: userData.email || user.email,
+      role: userData.role || 0,
+      type: userData.type || (user.userType === 'advertiser' ? 1 : 0),
+      balance: userData.balance || user.balance || 0,
+      avatarPath: userData.avatarPath || user.avatar,
+      bio: userData.bio || user.bio || '',
+      socialLinks: socialLinks // ← Правильный формат
+    };
+
+    console.log('📤 Данные для бекенда:', backendData);
+
+    const response = await AspNetApiService.updateUserInfo(backendData);
+    
+    console.log('✅ Данные пользователя обновлены:', response);
+    
+    // 🔥 ПРАВИЛЬНО ОБРАБАТЫВАЕМ ОТВЕТ
+    const updatedUser = {
+      ...user,
+      name: response.Name || backendData.name,
+      login: response.Login || backendData.login,
+      email: response.Email || backendData.email,
+      userType: response.Type === 1 ? 'advertiser' : 'contentmaker',
+      balance: response.Balance || backendData.balance,
+      avatar: response.AvatarPath || backendData.avatarPath || user.avatar,
+      bio: response.Bio || backendData.bio,
+      socialLinks: response.SocialLinks || backendData.socialLinks || [],
+      isVerified: response.IsVerified || user.isVerified || false,
+      createdAt: response.CreatedAt,
+      updatedAt: response.UpdatedAt,
+      deletedAt: response.DeletedAt,
+      backendData: response
+    };
+    
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+    return { 
+      success: true, 
+      user: updatedUser,
+      message: 'Данные успешно обновлены!' 
+    };
+    
+  } catch (error) {
+    console.error('❌ Ошибка обновления данных:', error);
+    
+    let errorMessage = 'Произошла ошибка при обновлении данных';
+    
+    if (error.message.includes('Пользователь не найден')) {
+      errorMessage = 'Пользователь не найден';
+    } else if (error.message.includes('Ошибкав отпр данных') || 
+               error.message.includes('некоректный пользователь')) {
+      errorMessage = 'Некорректные данные пользователя';
+    } else if (error.message.includes('405')) {
+      errorMessage = 'Метод не разрешен. Обратитесь к разработчикам бекенда.';
+    } else {
+      errorMessage = error.message;
+    }
+    
+    return { 
+      success: false, 
+      error: errorMessage 
+    };
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   // 🚪 ФУНКЦИЯ ВЫХОДА
   const logout = () => {
     setUser(null);
@@ -400,6 +494,45 @@ const testEndpoints = async () => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
+  const changePassword = async (oldPassword, newPassword) => {
+    setIsLoading(true);
+    
+    try {
+      console.log('🔐 Смена пароля...');
+      
+      const response = await AspNetApiService.changePassword(oldPassword, newPassword);
+      
+      console.log('✅ Пароль изменен:', response);
+      
+      return { 
+        success: true, 
+        message: response.message || 'Пароль успешно изменен!' 
+      };
+      
+    } catch (error) {
+      console.error('❌ Ошибка смены пароля:', error);
+      
+      let errorMessage = 'Произошла ошибка при смене пароля';
+      
+      if (error.message.includes('неверный пароль')) {
+        errorMessage = 'Неверный текущий пароль';
+      } else if (error.message.includes('Пользователь не найден')) {
+        errorMessage = 'Пользователь не найден';
+      } else if (error.message.includes('Ошибкав отпр данных')) {
+        errorMessage = 'Некорректные данные';
+      } else {
+        errorMessage = error.message;
+      }
+      
+      return { 
+        success: false, 
+        error: errorMessage 
+      };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value = {
     user,
     isLoading,
@@ -410,6 +543,8 @@ const testEndpoints = async () => {
     getCurrentUser,
     refreshAuth,
     deleteAccount,
+    updateUserInfo,
+    changePassword,
     isAuthenticated: !!user
   };
 

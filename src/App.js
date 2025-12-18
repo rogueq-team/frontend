@@ -9,6 +9,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
 import Contacts from './components/Contacts';
+import Orders from './components/Orders';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -27,22 +28,9 @@ function AppContent() {
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
           <Route path="/contacts" element={<Contacts />} />
-          <Route 
-            path="/dashboard" 
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/settings" 
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            } 
-          />
+          <Route path="/orders" element={<Orders/>}/>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/settings" element={ <Settings />} />
         </Routes>
       </main>
       <Footer />

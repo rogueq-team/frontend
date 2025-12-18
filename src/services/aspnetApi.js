@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://localhost:7157';
+const API_BASE_URL = 'http://localhost:5050';
 
 class AspNetApiService {
   constructor() {
@@ -353,6 +353,39 @@ async deleteUser() {
       body: JSON.stringify(orderData),
     });
   }
+
+  async updateUserInfo(userData) {
+    return this.request('/User/UpdateInformation', {
+      method: 'POST', // ← ТОЧНО POST!
+      body: JSON.stringify({
+        Name: userData.name,
+        Login: userData.login,
+        Email: userData.email,
+        Role: userData.role || 0,
+        Type: userData.type || 1,
+        Balance: userData.balance || 0,
+        AvatarPath: userData.avatarPath || null,
+        Bio: userData.bio || null,
+        // 🔥 ВАЖНО: SocialLinks должен быть List<string> или null
+        SocialLinks: userData.socialLinks && userData.socialLinks.length > 0 
+          ? userData.socialLinks 
+          : []
+      }),
+    });
+  }
+
+
+  // 🔐 СМЕНА ПАРОЛЯ
+  async changePassword(oldPassword, newPassword) {
+    return this.request('/User/ChangePassword', {
+      method: 'POST', // ← Тоже POST
+      body: JSON.stringify({
+        oldPassword: oldPassword,
+        newPassword: newPassword
+      }),
+    });
+  }
+
 } 
 
 
