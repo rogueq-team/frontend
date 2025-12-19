@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import OrdersList from './OrdersList';
+import OrdersList from './Applications';
 import './Dashboard.css';
 
 function Dashboard() {

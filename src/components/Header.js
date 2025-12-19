@@ -27,7 +27,7 @@ function Header() {
         <nav className="header-nav">
           <Link to="/" className="nav-link">Главная</Link>
           <Link to="/about" className="nav-link">О нас</Link>
-          <Link to="/orders" className="nav-link">Заказы</Link>
+          <Link to="/applications" className="nav-link">Заказы</Link>
           
           {isAuthenticated ? (
             // ✅ ПОКАЗЫВАЕМ ДЛЯ АВТОРИЗОВАННОГО ПОЛЬЗОВАТЕЛЯ

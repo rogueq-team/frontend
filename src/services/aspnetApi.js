@@ -342,17 +342,184 @@ async deleteUser() {
     });
   }
 
-  // 📋 ЗАКАЗЫ
-  async getOrders() {
-    return this.request('/Order');
-  }
+ // 📋 ПОЛУЧЕНИЕ ВСЕХ ЗАЯВОК (для контент-мейкеров)
+async getAllApplications() {
+  return this.request('/Applications/GetAllApp', {
+    method: 'GET'
+  });
+}
 
-  async createOrder(orderData) {
-    return this.request('/Order', {
-      method: 'POST',
-      body: JSON.stringify(orderData),
+// 📋 ПОЛУЧЕНИЕ ЗАЯВОК ПОЛЬЗОВАТЕЛЯ (для рекламодателей)
+async getUserApplications() {
+  return this.request('/Applications/GetByUser', {
+    method: 'GET'
+  });
+}
+
+// 📋 ПОЛУЧЕНИЕ КОНКРЕТНОЙ ЗАЯВКИ ПО ID
+async getApplicationById(id) {
+  return this.request(`/Applications/GetApp/${id}`, {
+    method: 'GET'
+  });
+}
+
+// 📋 СОЗДАНИЕ ЗАЯВКИ (уже правильный метод)
+async createApplication(applicationData) {
+  return this.request('/Applications/CreateApp', {
+    method: 'POST',
+    body: JSON.stringify({
+      description: applicationData.description,  
+      cost: applicationData.cost,                
+      status: applicationData.status || 0        
+    }),
+  });
+}
+
+async updateApplication(applicationId, applicationData) {
+  try {
+    console.log('🔄 Обновление заявки:', { applicationId, applicationData });
+    
+    const response = await fetch(`${this.baseUrl}/Applications/ApplicationUpdate/${applicationId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+      body: JSON.stringify({
+        description: applicationData.description,
+        cost: applicationData.cost,
+        status: applicationData.status
+      }),
     });
+
+    console.log('📤 Response status:', response.status);
+    console.log('📤 Response headers:', response.headers);
+    
+    // Проверяем статус ответа
+    if (response.status === 204) {
+      // 204 No Content - успех, но без тела ответа
+      console.log('✅ Заявка успешно обновлена (204 No Content)');
+      return { success: true, message: 'Заявка обновлена' };
+    }
+    
+    if (response.status === 200) {
+      // Пробуем получить JSON
+      const responseText = await response.text();
+      console.log('📤 Response text:', responseText);
+      
+      if (responseText) {
+        try {
+          const data = JSON.parse(responseText);
+          console.log('✅ Parsed response:', data);
+          return data;
+        } catch (parseError) {
+          console.log('⚠️ Response is not JSON:', responseText);
+          return { success: true, message: responseText || 'Заявка обновлена' };
+        }
+      } else {
+        // Пустой ответ
+        console.log('✅ Пустой ответ (200 OK)');
+        return { success: true, message: 'Заявка обновлена' };
+      }
+    }
+    
+    // Обработка ошибок
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
+      
+      let errorMessage = 'Ошибка обновления заявки';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.message || errorData.error || errorText;
+      } catch {
+        errorMessage = errorText || `HTTP error! status: ${response.status}`;
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+  } catch (error) {
+    console.error('❌ API Error в updateApplication:', error);
+    throw error;
   }
+}
+
+// 📋 УДАЛЕНИЕ ЗАЯВКИ (уже правильный метод)
+async deleteApplication(applicationId) {
+  try {
+    console.log('🗑️ Удаление заявки с ID:', applicationId);
+    
+    const endpoint = `/Applications/DeleteApp/${applicationId}`;
+    console.log('🔗 Endpoint:', endpoint);
+    
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      }
+    });
+
+    console.log('🗑️ Response status:', response.status);
+    console.log('🗑️ Response headers:', response.headers);
+    
+    // Проверяем разные статусы
+    if (response.status === 204) {
+      // 204 No Content - успешное удаление без тела ответа
+      console.log('✅ Заявка успешно удалена (204 No Content)');
+      return { success: true, message: 'Заявка удалена' };
+    }
+    
+    if (response.status === 200) {
+      const responseText = await response.text();
+      console.log('🗑️ Response text (200):', responseText);
+      
+      if (responseText) {
+        try {
+          const data = JSON.parse(responseText);
+          console.log('✅ Parsed response:', data);
+          return data;
+        } catch {
+          return { success: true, message: responseText };
+        }
+      }
+      return { success: true, message: 'Заявка удалена' };
+    }
+    
+    // Обработка ошибок
+    const errorText = await response.text();
+    console.error('❌ Error response:', errorText);
+    
+    let errorMessage = 'Ошибка удаления заявки';
+    if (response.status === 404) {
+      errorMessage = 'Заявка не найдена';
+    } else if (response.status === 403) {
+      errorMessage = 'Нет прав для удаления этой заявки';
+    } else if (response.status === 400) {
+      errorMessage = 'Некорректный запрос';
+    }
+    
+    // Пробуем извлечь сообщение из JSON
+    if (errorText) {
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        // Если не JSON, используем текст ошибки
+        if (errorText.trim()) {
+          errorMessage = errorText;
+        }
+      }
+    }
+    
+    throw new Error(errorMessage);
+    
+  } catch (error) {
+    console.error('🗑️ API Error в deleteApplication:', error);
+    throw error;
+  }
+}
 
   async updateUserInfo(userData) {
     return this.request('/User/UpdateInformation', {
