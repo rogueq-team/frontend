@@ -16,9 +16,15 @@ function Applications() {
   const [viewMode, setViewMode] = useState('my');
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // Для перезагрузки заявок
 
+  // Функция для перезагрузки заявок
+  const refreshApplications = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
-   const handleViewDetails = (application) => {
+  const handleViewDetails = (application) => {
+    console.log('🔍 Открываем детали заявки:', application);
     setSelectedApplication(application);
     setShowModal(true);
   };
@@ -86,8 +92,7 @@ function Applications() {
     } else {
       setIsLoading(false);
     }
-  }, [user]);
-
+  }, [user, refreshTrigger]); // Добавляем refreshTrigger в зависимости
 
   // Фильтрация заявок
   const filteredApplications = applications.filter(app => {
@@ -124,10 +129,10 @@ function Applications() {
   };
 
   // Отклик на заявку (для контент-мейкеров)
-  const handleApply = (applicationId) => {
-    console.log('Отклик на заявку:', applicationId);
-    // TODO: Реализовать отклик
-    alert('Функция отклика будет реализована позже');
+  const handleApply = (application) => { // Изменяем параметр с applicationId на application
+    console.log('📝 Открываем заявку для отклика:', application);
+    setSelectedApplication(application);
+    setShowModal(true);
   };
 
   // Получение информации о статусе
@@ -139,7 +144,7 @@ function Applications() {
       2: { label: 'Завершена', color: '#6c757d', icon: '✅' },
       3: { label: 'Отменена', color: '#dc3545', icon: '❌' }
     };
-    return statuses[statusCode] || statuses[1];
+    return statuses[code] || statuses[1]; // Используем code вместо statusCode
   };
 
   // Для рекламодателей - статистика по заявкам
@@ -153,7 +158,7 @@ function Applications() {
     return { total, active, inProgress, completed, totalBudget };
   };
 
-  // Для контент-мейкеров - статистика по доступным заявкам
+  // Для контент-мейкеров - статистика по доступных заявках
   const getContentMakerStats = () => {
     const total = applications.length;
     const newApps = applications.filter(app => app.status === 0).length;
@@ -176,6 +181,7 @@ function Applications() {
   }
 
   const isAdvertiser = user?.userType === 'advertiser' || user?.userType === 'both';
+  const isContentMaker = user?.userType === 'contentmaker' || user?.userType === 'both';
   const stats = isAdvertiser ? getAdvertiserStats() : getContentMakerStats();
 
   return (
@@ -388,14 +394,14 @@ function Applications() {
                         {application.status === 0 && (
                           <button 
                             className="action-btn primary"
-                            onClick={() => handleApply(application.applicationId)}
+                            onClick={() => handleApply(application)}
                           >
                             📝 Откликнуться
                           </button>
                         )}
                         <button 
                           className="action-btn outline"
-                          onClick={() => console.log('Просмотр деталей:', application.applicationId)}
+                          onClick={() => handleViewDetails(application)}
                         >
                           👁️ Подробнее
                         </button>
@@ -408,12 +414,15 @@ function Applications() {
           </div>
         )}
       </div>
+      
+      {/* Модальное окно с деталями заявки */}
       {showModal && selectedApplication && (
         <ApplicationDetailsModal
           application={selectedApplication}
           onClose={handleCloseModal}
           onUpdate={handleApplicationUpdate}
           onDelete={handleApplicationDelete}
+          onRefresh={refreshApplications} // Теперь эта функция определена
         />
       )}
     </div>

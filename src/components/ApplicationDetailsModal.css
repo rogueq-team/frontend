@@ -423,3 +423,70 @@
   background: #f5c6cb;
   transform: translateY(-2px);
 }
+
+/* Модалка отклика */
+.apply-modal {
+  max-width: 600px;
+}
+
+.apply-textarea {
+  width: 100%;
+  padding: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 16px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 150px;
+  margin-bottom: 10px;
+  transition: border 0.3s;
+}
+
+.apply-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.field-hint {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin-top: 5px;
+  margin-bottom: 20px;
+}
+
+.application-preview {
+  margin-top: 25px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border-left: 4px solid #3498db;
+}
+
+.application-preview h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #2c3e50;
+}
+
+.preview-card {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.preview-card p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.apply-confirm-btn {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad) !important;
+  color: white !important;
+}
+
+.apply-confirm-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8e44ad, #7d3c98) !important;
+  transform: translateY(-2px);
+}

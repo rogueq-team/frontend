@@ -521,6 +521,16 @@ async deleteApplication(applicationId) {
   }
 }
 
+async createDeal(applicationId, description = "") {
+  return this.request(`/Deal/CreateDeal?applicationId=${applicationId}&description=${encodeURIComponent(description)}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({}) // Пустое тело, так как параметры в query string
+  });
+}
+
   async updateUserInfo(userData) {
     return this.request('/User/UpdateInformation', {
       method: 'POST', // ← ТОЧНО POST!

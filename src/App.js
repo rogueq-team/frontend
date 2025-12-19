@@ -11,6 +11,7 @@ import Settings from './components/Settings';
 import Contacts from './components/Contacts';
 import Applications from './components/Applications';
 import CreateApplication from './components/CreateApplication';
+import DealChat from './components/DealChat';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -33,6 +34,7 @@ function AppContent() {
           <Route path="/applications/create" element={<CreateApplication />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/settings" element={ <Settings />} />
+          <Route path="/deal/:dealId" element={<DealChat />} />
         </Routes>
       </main>
       <Footer />

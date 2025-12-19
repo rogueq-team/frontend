@@ -16,7 +16,21 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const isOwner = user?.userId === application?.userId;
+  // Проверяем тип пользователя
+  const isAdvertiser = user?.userType === 'advertiser' || user?.userType === 'both';
+  const isContentMaker = user?.userType === 'contentmaker' || user?.userType === 'both';
+
+  // Для простоты считаем, что рекламодатель может быть владельцем
+  // В реальном приложении нужно проверять userId
+  const canEdit = isAdvertiser && application?.status === 0;
+
+  const [applyMessage, setApplyMessage] = useState('');
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [quickStatusChangeData, setQuickStatusChangeData] = useState({
+    show: false,
+    newStatus: null,
+    statusInfo: null
+  });
 
   useEffect(() => {
     if (application) {
@@ -47,9 +61,7 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
     }));
   };
 
-
-  const handleQuickStatusChange = async (newStatus) => {
-    // Используем ваш ConfirmModal вместо window.confirm
+  const handleQuickStatusChange = (newStatus) => {
     setQuickStatusChangeData({
       show: true,
       newStatus: newStatus,
@@ -57,14 +69,73 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
     });
   };
 
-  // Добавьте состояние для модалки подтверждения
-  const [quickStatusChangeData, setQuickStatusChangeData] = useState({
-    show: false,
-    newStatus: null,
-    statusInfo: null
-  });
+  const handleOpenApply = () => {
+    setShowApplyModal(true);
+    setApplyMessage('');
+  };
 
-  // Функция подтверждения изменения статуса
+  const handleApply = async () => {
+    if (!applyMessage.trim()) {
+      setMessage({ type: 'error', text: '❌ Пожалуйста, добавьте сообщение к отклику' });
+      return;
+    }
+
+    setIsLoading(true);
+    setShowApplyModal(false);
+
+    try {
+      console.log('📝 Откликаемся на заявку:', {
+        applicationId: application.applicationId,
+        message: applyMessage
+      });
+
+      const result = await AspNetApiService.createDeal(
+        application.applicationId,
+        applyMessage
+      );
+
+      console.log('✅ Результат отклика:', result);
+
+      if (result && (result.success || result.dealId)) {
+        setMessage({
+          type: 'success',
+          text: '✅ Ваш отклик успешно отправлен! Заявка переведена в статус "В работе".'
+        });
+
+        if (onUpdate) {
+          onUpdate({
+            ...application,
+            status: 1
+          });
+        }
+
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+
+      } else {
+        throw new Error('Не удалось отправить отклик');
+      }
+
+    } catch (error) {
+      console.error('❌ Ошибка отклика на заявку:', error);
+
+      let errorMessage = 'Произошла ошибка при отправке отклика';
+
+      if (error.message.includes('не найдена')) {
+        errorMessage = '❌ Заявка не найдена';
+      } else if (error.message.includes('уже существует')) {
+        errorMessage = '❌ Вы уже откликнулись на эту заявку';
+      } else if (error.message.includes('нет прав')) {
+        errorMessage = '❌ У вас нет прав для отклика на эту заявку';
+      }
+
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const confirmQuickStatusChange = async () => {
     const { newStatus } = quickStatusChangeData;
     
@@ -74,20 +145,18 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
     try {
       console.log('🔄 Меняем статус на:', newStatus, getStatusInfo(newStatus).label);
       
-      // 🔥 ВАЖНО: Вызываем API для обновления на бекенде
       const result = await AspNetApiService.updateApplication(
         application.applicationId,
         {
-          description: application.description,  // Сохраняем текущее описание
-          cost: application.cost,                // Сохраняем текущую стоимость
-          status: newStatus                      // Новый статус
+          description: application.description,
+          cost: application.cost,
+          status: newStatus
         }
       );
 
       console.log('✅ Результат изменения статуса:', result);
       
       if (result && (result.success || result.applicationId)) {
-        // Обновляем заявку в родительском компоненте
         if (onUpdate) {
           onUpdate({
             ...application,
@@ -95,13 +164,11 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
           });
         }
 
-        // Показываем сообщение об успехе
         setMessage({ 
           type: 'success', 
           text: `✅ Статус заявки изменен на "${getStatusInfo(newStatus).label}"` 
         });
 
-        // Автоматически скрываем сообщение через 3 секунды
         setTimeout(() => {
           setMessage({ type: '', text: '' });
         }, 3000);
@@ -127,84 +194,79 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
     }
   };
 
+  const handleSave = async () => {  
+    if (!editData.description.trim()) {
+      setMessage({ type: 'error', text: '❌ Заполните описание' });
+      return;
+    }
 
+    if (editData.cost <= 0) {
+      setMessage({ type: 'error', text: '❌ Сумма должна быть положительной' });
+      return;
+    }
 
-  
-const handleSave = async () => {  
-  if (!editData.description.trim()) {
-    setMessage({ type: 'error', text: '❌ Заполните описание' });
-    return;
-  }
+    setIsLoading(true);
+    setMessage({ type: '', text: '' });
 
-  if (editData.cost <= 0) {
-    setMessage({ type: 'error', text: '❌ Сумма должна быть положительной' });
-    return;
-  }
-
-  setIsLoading(true);
-  setMessage({ type: '', text: '' });
-
-  try {
-    console.log('🔄 Сохраняем изменения:', {
-      applicationId: application.applicationId,
-      data: editData
-    });
-    
-    const result = await AspNetApiService.updateApplication(
-      application.applicationId,
-      {
-        description: editData.description,
-        cost: editData.cost,
-        status: application.status
-      }
-    );
-
-    console.log('✅ Результат обновления:', result);
-    
-    // Проверяем разные форматы ответа
-    if (result && (result.success || result.applicationId || result.message)) {
-      setMessage({ 
-        type: 'success', 
-        text: result.message || '✅ Заявка успешно обновлена!' 
+    try {
+      console.log('🔄 Сохраняем изменения:', {
+        applicationId: application.applicationId,
+        data: editData
       });
-
-      // Обновляем данные в родительском компоненте
-      if (onUpdate) {
-        onUpdate({
-          ...application,
+      
+      const result = await AspNetApiService.updateApplication(
+        application.applicationId,
+        {
           description: editData.description,
           cost: editData.cost,
+          status: application.status
+        }
+      );
+
+      console.log('✅ Результат обновления:', result);
+      
+      if (result && (result.success || result.applicationId || result.message)) {
+        setMessage({ 
+          type: 'success', 
+          text: result.message || '✅ Заявка успешно обновлена!' 
         });
+
+        if (onUpdate) {
+          onUpdate({
+            ...application,
+            description: editData.description,
+            cost: editData.cost,
+          });
+        }
+
+        setTimeout(() => {
+          setIsEditing(false);
+          setMessage({ type: '', text: '' });
+          onClose();
+        }, 2000);
+      } else {
+        throw new Error('Неизвестный формат ответа');
       }
 
-      setTimeout(() => {
-        setIsEditing(false);
-        setMessage({ type: '', text: '' });
-        onClose();
-      }, 2000);
-    } else {
-      throw new Error('Неизвестный формат ответа');
+    } catch (error) {
+      console.error('❌ Ошибка обновления заявки:', error);
+      console.error('❌ Подробности ошибки:', error.message);
+      
+      let errorMessage = 'Произошла ошибка при обновлении заявки';
+      
+      if (error.message.includes('Сумма должна быть положительной')) {
+        errorMessage = '❌ Сумма должна быть положительной';
+      } else if (error.message.includes('не найдена') || error.message.includes('not found')) {
+        errorMessage = '❌ Заявка не найдена';
+      } else if (error.message.includes('нет прав')) {
+        errorMessage = '❌ У вас нет прав для редактирования этой заявки';
+      }
+      
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setIsLoading(false);
     }
-
-  } catch (error) {
-    console.error('❌ Ошибка обновления заявки:', error);
-    console.error('❌ Подробности ошибки:', error.message);
-    
-    let errorMessage = 'Произошла ошибка при обновлении заявки';
-    
-    if (error.message.includes('Сумма должна быть положительной')) {
-      errorMessage = '❌ Сумма должна быть положительной';
-    } else if (error.message.includes('не найдена') || error.message.includes('not found')) {
-      errorMessage = '❌ Заявка не найдена';
-    } else if (error.message.includes('нет прав')) {
-      errorMessage = '❌ У вас нет прав для редактирования этой заявки';
-    }
-    
-    setMessage({ type: 'error', text: errorMessage });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleDelete = async () => {
     setShowDeleteConfirm(false);
@@ -212,51 +274,48 @@ const handleSave = async () => {
     setMessage({ type: '', text: '' });
 
     try {
-    console.log('🗑️ Удаляем заявку:', application.applicationId);
-    
-    const result = await AspNetApiService.deleteApplication(application.applicationId);
-    
-    console.log('✅ Результат удаления:', result);
-    
-    if (result && result.success) {
-      // Уведомляем родительский компонент об удалении
-      if (onDelete) {
-        onDelete(application.applicationId);
+      console.log('🗑️ Удаляем заявку:', application.applicationId);
+      
+      const result = await AspNetApiService.deleteApplication(application.applicationId);
+      
+      console.log('✅ Результат удаления:', result);
+      
+      if (result && result.success) {
+        if (onDelete) {
+          onDelete(application.applicationId);
+        }
+        
+        setMessage({ 
+          type: 'success', 
+          text: '✅ Заявка успешно удалена!' 
+        });
+        
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+        
+      } else {
+        throw new Error('Не удалось удалить заявку');
       }
       
-      // Показываем сообщение об успехе
-      setMessage({ 
-        type: 'success', 
-        text: '✅ Заявка успешно удалена!' 
-      });
+    } catch (error) {
+      console.error('❌ Ошибка удаления заявки:', error);
       
-      // Закрываем модалку через 1.5 секунды
-      setTimeout(() => {
-        onClose();
-      }, 1500);
+      let errorMessage = 'Произошла ошибка при удалении заявки';
       
-    } else {
-      throw new Error('Не удалось удалить заявку');
+      if (error.message.includes('не найдена')) {
+        errorMessage = '❌ Заявка не найдена';
+      } else if (error.message.includes('нет прав')) {
+        errorMessage = '❌ У вас нет прав для удаления этой заявки';
+      } else if (error.message.includes('запрещен')) {
+        errorMessage = '❌ Доступ запрещен';
+      }
+      
+      setMessage({ type: 'error', text: errorMessage });
+    } finally {
+      setIsLoading(false);
     }
-    
-  } catch (error) {
-    console.error('❌ Ошибка удаления заявки:', error);
-    
-    let errorMessage = 'Произошла ошибка при удалении заявки';
-    
-    if (error.message.includes('не найдена')) {
-      errorMessage = '❌ Заявка не найдена';
-    } else if (error.message.includes('нет прав')) {
-      errorMessage = '❌ У вас нет прав для удаления этой заявки';
-    } else if (error.message.includes('запрещен')) {
-      errorMessage = '❌ Доступ запрещен';
-    }
-    
-    setMessage({ type: 'error', text: errorMessage });
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const getStatusInfo = (statusCode) => {
     const statuses = {
@@ -368,7 +427,8 @@ const handleSave = async () => {
           </div>
         </div>
 
-        {(isOwner || user?.isAdmin) && !isEditing && (
+        {/* Быстрое изменение статуса (только для рекламодателей) */}
+        {isAdvertiser && !isEditing && (
           <div className="quick-status-actions">
             <h4>Быстрое изменение статуса:</h4>
             <div className="quick-status-buttons">
@@ -412,21 +472,9 @@ const handleSave = async () => {
           </div>
         )}
 
-        {quickStatusChangeData.show && (
-          <ConfirmModal
-            isOpen={true}
-            onConfirm={confirmQuickStatusChange}
-            onCancel={() => setQuickStatusChangeData({ show: false, newStatus: null, statusInfo: null })}
-            title="Изменение статуса заявки"
-            message={`Вы уверены, что хотите изменить статус заявки на "${quickStatusChangeData.statusInfo?.label}"?`}
-            confirmText="Изменить"
-            cancelText="Отмена"
-            type="warning"
-          />
-        )}
-
         <div className="modal-actions">
-          {isOwner ? (
+          {/* Для рекламодателей - редактирование/удаление */}
+          {isAdvertiser && canEdit && (
             <>
               {isEditing ? (
                 <>
@@ -454,7 +502,7 @@ const handleSave = async () => {
                   >
                     ✏️ Редактировать
                   </button>
-                   <button 
+                  <button 
                     className="action-btn delete-btn"
                     onClick={() => setShowDeleteConfirm(true)}
                     disabled={isLoading}
@@ -464,15 +512,20 @@ const handleSave = async () => {
                 </>
               )}
             </>
-          ) : (
-            <button 
+          )}
+
+          {/* Для контент-мейкеров - отклик (только для новых заявок) */}
+          {isContentMaker && !isAdvertiser && application.status === 0 && (
+            <button
               className="action-btn apply-btn"
-              onClick={() => console.log('Откликнуться на заявку')}
+              onClick={handleOpenApply}
+              disabled={isLoading}
             >
               📝 Откликнуться
             </button>
           )}
-          
+
+          {/* Кнопка закрытия для всех */}
           <button 
             className="action-btn close-action-btn"
             onClick={onClose}
@@ -482,6 +535,22 @@ const handleSave = async () => {
           </button>
         </div>
       </div>
+
+      {/* Модалка подтверждения изменения статуса */}
+      {quickStatusChangeData.show && (
+        <ConfirmModal
+          isOpen={true}
+          onConfirm={confirmQuickStatusChange}
+          onCancel={() => setQuickStatusChangeData({ show: false, newStatus: null, statusInfo: null })}
+          title="Изменение статуса заявки"
+          message={`Вы уверены, что хотите изменить статус заявки на "${quickStatusChangeData.statusInfo?.label}"?`}
+          confirmText="Изменить"
+          cancelText="Отмена"
+          type="warning"
+        />
+      )}
+
+      {/* Модалка подтверждения удаления */}
       {showDeleteConfirm && (
         <ConfirmModal
           isOpen={true}
@@ -493,6 +562,60 @@ const handleSave = async () => {
           cancelText="Отмена"
           type="danger"
         />
+      )}
+
+      {/* Модалка отклика на заявку */}
+      {showApplyModal && (
+        <div className="modal-overlay" onClick={() => setShowApplyModal(false)}>
+          <div className="modal-content apply-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Отклик на заявку</h2>
+              <button className="close-btn" onClick={() => setShowApplyModal(false)}>×</button>
+            </div>
+
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="applyMessage">Ваше сообщение рекламодателю:</label>
+                <textarea
+                  id="applyMessage"
+                  value={applyMessage}
+                  onChange={(e) => setApplyMessage(e.target.value)}
+                  placeholder="Напишите, почему вы подходите для этой задачи, ваш опыт, сроки и т.д."
+                  rows="6"
+                  className="apply-textarea"
+                />
+                <div className="field-hint">
+                  Это сообщение увидит рекламодатель при рассмотрении вашего отклика
+                </div>
+              </div>
+
+              <div className="application-preview">
+                <h4>Заявка:</h4>
+                <div className="preview-card">
+                  <p><strong>Описание:</strong> {application.description}</p>
+                  <p><strong>Бюджет:</strong> {application.cost?.toLocaleString('ru-RU')} ₽</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="action-btn cancel-btn"
+                onClick={() => setShowApplyModal(false)}
+                disabled={isLoading}
+              >
+                Отмена
+              </button>
+              <button
+                className="action-btn apply-confirm-btn"
+                onClick={handleApply}
+                disabled={isLoading || !applyMessage.trim()}
+              >
+                {isLoading ? 'Отправка...' : '📝 Отправить отклик'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
