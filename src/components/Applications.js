@@ -158,6 +158,63 @@ function Applications() {
     return { total, active, inProgress, completed, totalBudget };
   };
 
+  const handleOpenChat = async (application) => { // Принимаем всю заявку, а не только ID
+    setIsLoading(true);
+    
+    try {
+      console.log('💬 Получаем информацию о сделке для заявки:', application.applicationId);
+      
+      // 1. Получаем информацию о сделке по ID заявки
+      const dealInfo = await AspNetApiService.getDealByApplicationId(application.applicationId);
+      
+      console.log('✅ Информация о сделке:', dealInfo);
+      
+      if (dealInfo && dealInfo.id) {
+        // 2. Если сделка найдена - переходим в чат
+        navigate(`/deal/${dealInfo.id}`);
+      } else {
+        // 3. Если сделка не найдена, но заявка в работе
+        if (application.status === 1) {
+          // Можно создать сделку автоматически или показать сообщение
+          const shouldCreateDeal = window.confirm(
+            'Сделка для этой заявки не найдена. Создать новую сделку?'
+          );
+          
+          if (shouldCreateDeal) {
+            // Создаем сделку с пустым описанием
+            const newDeal = await AspNetApiService.createDeal(
+              application.applicationId,
+              `Сделка по заявке: ${application.description?.substring(0, 50)}...`
+            );
+            
+            if (newDeal && newDeal.id) {
+              navigate(`/deal/${newDeal.id}`);
+            } else {
+              throw new Error('Не удалось создать сделку');
+            }
+          }
+        } else {
+          alert('❌ Для этой заявки еще нет сделки. Заявка должна быть в статусе "В работе".');
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Ошибка открытия чата:', error);
+      
+      let errorMessage = 'Не удалось открыть чат';
+      
+      if (error.message.includes('не найдена') || error.message.includes('404')) {
+        errorMessage = '❌ Сделка для этой заявки не найдена';
+      } else if (error.message.includes('нет прав')) {
+        errorMessage = '❌ У вас нет доступа к этой сделке';
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Для контент-мейкеров - статистика по доступных заявках
   const getContentMakerStats = () => {
     const total = applications.length;
@@ -366,20 +423,21 @@ function Applications() {
                       // Действия для создателя заявки
                       <>
                         {application.status === 0 && (
-                          <>
-                            <button 
-                              className="action-btn primary"
-                              onClick={() => handleEdit(application.applicationId)}
-                            >
-                              ✏️ Редактировать
-                            </button>
                             <button 
                               className="action-btn danger"
                               onClick={() => handleDelete(application.applicationId)}
                             >
                               🗑️ Удалить
                             </button>
-                          </>
+                        )}
+                        {application.status === 1 && (
+                          <button 
+                            className="action-btn chat-btn"
+                            onClick={() => handleOpenChat(application)}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? '⏳ Загрузка...' : '💬 Чат'}
+                          </button>
                         )}
                         <button 
                           className="action-btn outline"
@@ -399,6 +457,17 @@ function Applications() {
                             📝 Откликнуться
                           </button>
                         )}
+
+                        {application.status === 1 && (
+                          <button 
+                            className="action-btn chat-btn"
+                            onClick={() => handleOpenChat(application)}
+                            disabled={isLoading}
+                          >
+                            {isLoading ? '⏳ Загрузка...' : '💬 Чат'}
+                          </button>
+                        )}
+
                         <button 
                           className="action-btn outline"
                           onClick={() => handleViewDetails(application)}

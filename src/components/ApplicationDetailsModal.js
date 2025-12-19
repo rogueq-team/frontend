@@ -1,5 +1,6 @@
 // components/ApplicationDetailsModal.js
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AspNetApiService from '../services/aspnetApi';
 import './ApplicationDetailsModal.css';
@@ -7,6 +8,7 @@ import ConfirmModal from './ConfirmModal';
 
 function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     description: application?.description || '',
@@ -95,24 +97,31 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
       );
 
       console.log('✅ Результат отклика:', result);
-
+      
       if (result && (result.success || result.dealId)) {
+        // Получаем ID сделки
+        const dealId = result.dealId || result.id || result.deal?.id;
+        
         setMessage({
           type: 'success',
-          text: '✅ Ваш отклик успешно отправлен! Заявка переведена в статус "В работе".'
+          text: '✅ Ваш отклик успешно отправлен! Создана сделка.'
         });
 
+        // Обновляем заявку в родительском компоненте
         if (onUpdate) {
           onUpdate({
             ...application,
-            status: 1
+            status: 1 // Статус "В работе"
           });
         }
 
-        setTimeout(() => {
-          onClose();
-        }, 2000);
-
+        // Если есть ID сделки - перенаправляем на страницу сделки
+        if (dealId) {
+          setTimeout(() => {
+            onClose();
+            navigate(`/deal/${dealId}`);
+          }, 2000);
+        }
       } else {
         throw new Error('Не удалось отправить отклик');
       }
