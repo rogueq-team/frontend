@@ -563,7 +563,31 @@ async createDeal(applicationId, description = "") {
     });
   }
 
-} 
+
+
+  // 📦 РАБОТА СО СДЕЛКАМИ (DEALS)
+  async getDeal(dealId) {
+    return this.request(`/Deal/GetDeal/${dealId}`, {
+      method: 'GET'
+    });
+  }
+
+  async getUserDeals() {
+    return this.request('/Deal/GetUserDeals', {
+      method: 'GET'
+    });
+  }
+
+  async updateDealStatus(dealId, status) {
+    return this.request(`/Deal/UpdateStatus/${dealId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status })
+    });
+  }
+}
+
+
+
 
 
 
