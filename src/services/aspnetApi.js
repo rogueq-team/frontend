@@ -166,6 +166,8 @@ class AspNetApiService {
     try {
       console.log('🔐 Отправка данных регистрации:', userData);
       
+      const typeValue = userData.type === 1 ? 1 : 0;
+
       const response = await fetch(`${this.baseUrl}/Auth/Registration`, {
         method: 'POST',
         headers: {
@@ -177,8 +179,17 @@ class AspNetApiService {
           email: userData.email,
           password: userData.password,
           role: userData.role,
-          type: userData.userType
+          type: typeValue
         }),
+      });
+      console.log('📤 Отправка на сервер:', {
+      name: userData.name,
+      login: userData.login,
+      email: userData.email,
+      password: '[скрыто]',
+      role: userData.role,
+      type: userData.type,
+      userTypeOriginal: userData.type
       });
 
       console.log('🔐 Response status:', response.status);

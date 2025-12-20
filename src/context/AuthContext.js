@@ -183,66 +183,75 @@ const login = async (email, password, userType) => {
 };
 
   const register = async (userData) => {
-    setIsLoading(true);
+  setIsLoading(true);
+  
+  try {
+    console.log('Registering user:', userData);
     
-    try {
-      console.log('Registering user:', userData);
-      
-      const backendUserData = {
-        name: userData.username,
-        login: userData.email,
-        email: userData.email,
-        password: userData.password,
-        role: 0,
-        type: userData.userType === 'advertiser' ? 1 : 0
-      };
-      
-      console.log('backendUserData:', backendUserData);
-      const response = await AspNetApiService.register(backendUserData);
-      
-      console.log('Register response:', response);
-
-      const token = response.jwtToken || response.JWTToken;
-      
-      if (response && token) {
-        const userTypeFromBackend = response.UserType === "Advertiser" ? 'advertiser' : 'contentmaker';
-
-        const newUser = {
-          id: Date.now(),
-          name: userData.username,
-          email: response.Email,
-          userType: userTypeFromBackend,
-          avatar: userTypeFromBackend === 'advertiser' ? '🏢' : '🎬',
-          registrationDate: new Date().toISOString().split('T')[0],
-          balance: 0,
-          campaigns: 0,
-          statistics: {
-            views: 0,
-            clicks: 0,
-            conversions: 0,
-            engagement: 0
-          },
-          token: token,
-          refreshToken: response.RefreshToken || response.refreshToken,
-          backendData: response
-        };
-        
-        setUser(newUser);
-        localStorage.setItem('user', JSON.stringify(newUser));
-        localStorage.setItem('authToken', response.JWTToken);
-        
-        return { success: true, user: newUser };
-      } else {
-        return { success: false, error: 'Ошибка регистрации' };
-      }
-      
-    } catch (error) {
-      console.error('Register error:', error);
-      return { success: false, error: error.message };
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // 🔥 ИСПРАВЛЕНИЕ: используем userData.userType, а не userData.type
+    const backendUserData = {
+      name: userData.username,
+      login: userData.email,
+      email: userData.email,
+      password: userData.password,
+      role: 0,
+      type: userData.userType === 'advertiser' ? 1 : 0  // ← ИСПРАВЛЕНО!
+    };
+    
+    console.log('=== ДЕБАГ РЕГИСТРАЦИИ ===');
+    console.log('1. Данные из формы:', userData);
+    console.log('2. Тип пользователя (строка):', userData.userType);
+    console.log('3. Преобразованный type (число):', userData.userType === 'advertiser' ? 1 : 0);
+    console.log('4. Данные для бекенда:', backendUserData);
+    console.log('========================');
+    
+    const response = await AspNetApiService.register(backendUserData);
+    
+    console.log('Register response:', response);
+    
+    // 🔥 Также исправьте обработку ответа:
+    let userTypeFromBackend = 'contentmaker'; // по умолчанию
+    
+    if (response.UserType === "Advertiser") {
+      userTypeFromBackend = 'advertiser';
+    } 
+    // Если UserType === "Platform", оставляем как 'contentmaker'
+    
+    const newUser = {
+      id: Date.now(),
+      name: userData.username,
+      email: response.Email,
+      userType: userTypeFromBackend, // Используем преобразованный тип
+      avatar: userTypeFromBackend === 'advertiser' ? '🏢' : '🎬',
+      registrationDate: new Date().toISOString().split('T')[0],
+      balance: 0,
+      campaigns: 0,
+      statistics: {
+        views: 0,
+        clicks: 0,
+        conversions: 0,
+        engagement: 0
+      },
+      token: response.jwtToken || response.JWTToken,
+      refreshToken: response.RefreshToken || response.refreshToken,
+      backendData: response
+    };
+    
+    console.log('✅ Создан пользователь:', newUser);
+    
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.setItem('authToken', newUser.token);
+    
+    return { success: true, user: newUser };
+    
+  } catch (error) {
+    console.error('Register error:', error);
+    return { success: false, error: error.message };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const getCurrentUser = async () => {
   setIsLoading(true);
