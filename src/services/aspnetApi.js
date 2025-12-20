@@ -536,23 +536,32 @@ async deleteApplication(applicationId) {
 
 
   async updateUserInfo(userData) {
-    return this.request('/User/UpdateInformation', {
-      method: 'POST', // ← ТОЧНО POST!
-      body: JSON.stringify({
-        Name: userData.name,
-        Login: userData.login,
-        Email: userData.email,
-        Role: userData.role || 0,
-        Type: userData.type || 1,
-        Balance: userData.balance || 0,
-        AvatarPath: userData.avatarPath || null,
-        Bio: userData.bio || null,
-        // 🔥 ВАЖНО: SocialLinks должен быть List<string> или null
-        SocialLinks: userData.socialLinks && userData.socialLinks.length > 0 
-          ? userData.socialLinks 
-          : []
-      }),
-    });
+    try {
+      console.log('🔄 Обновление информации пользователя:', userData);
+      
+      // 🔥 УБЕРИТЕ SocialLinks ИЗ ЗАПРОСА
+      const requestBody = {
+        name: userData.name,
+        login: userData.login,
+        email: userData.email,
+        role: userData.role || 0,
+        type: userData.type || 0,
+        balance: userData.balance || 0,
+        avatarPath: userData.avatarPath || '',
+        bio: userData.bio || ''
+      };
+      
+      console.log('📤 Отправляемые данные (без SocialLinks):', requestBody);
+      
+      return this.request('/User/UpdateInformation', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      });
+      
+    } catch (error) {
+      console.error('❌ API Error в updateUserInfo:', error);
+      throw error;
+    }
   }
 
 

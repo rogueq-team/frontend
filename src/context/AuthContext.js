@@ -405,21 +405,13 @@ const updateUserInfo = async (userData) => {
   try {
     console.log('🔄 Отправка обновленных данных пользователя:', userData);
     
-    if (!user?.id) {
+    // 🔥 УПРОЩЕННАЯ ПРОВЕРКА
+    if (!user) {
       throw new Error('Пользователь не авторизован');
     }
 
-    // 🔥 ПРАВИЛЬНО ФОРМИРУЕМ SocialLinks
-    let socialLinks = null;
-    if (userData.socialLinks && Array.isArray(userData.socialLinks)) {
-      // Если это массив строк - оставляем как есть
-      socialLinks = userData.socialLinks;
-    } else if (userData.socialLinks && typeof userData.socialLinks === 'object') {
-      // Если это объект {youtube: "...", instagram: "..."} - преобразуем в массив
-      socialLinks = Object.values(userData.socialLinks)
-        .filter(link => link && link.trim() !== '');
-    }
-
+    // 🔥 СОГЛАСНО СКРИНШОТУ: SocialLinks НЕ ДОЛЖНО БЫТЬ В ЗАПРОСЕ!
+    // Смотрим на схему на скриншоте - там нет SocialLinks
     const backendData = {
       name: userData.name || user.name,
       login: userData.login || user.login || user.email,
@@ -427,18 +419,18 @@ const updateUserInfo = async (userData) => {
       role: userData.role || 0,
       type: userData.type || (user.userType === 'advertiser' ? 1 : 0),
       balance: userData.balance || user.balance || 0,
-      avatarPath: userData.avatarPath || user.avatar,
-      bio: userData.bio || user.bio || '',
-      socialLinks: socialLinks // ← Правильный формат
+      avatarPath: userData.avatarPath || user.avatar || '',
+      bio: userData.bio || user.bio || ''
+      // ⚠️ SocialLinks НЕТ в схеме запроса!
     };
 
-    console.log('📤 Данные для бекенда:', backendData);
+    console.log('📤 Данные для бекенда (согласно схеме):', backendData);
 
     const response = await AspNetApiService.updateUserInfo(backendData);
     
     console.log('✅ Данные пользователя обновлены:', response);
     
-    // 🔥 ПРАВИЛЬНО ОБРАБАТЫВАЕМ ОТВЕТ
+    // 🔥 ОБНОВЛЯЕМ ПОЛЬЗОВАТЕЛЯ С УЧЕТОМ ОТВЕТА
     const updatedUser = {
       ...user,
       name: response.Name || backendData.name,
@@ -448,11 +440,8 @@ const updateUserInfo = async (userData) => {
       balance: response.Balance || backendData.balance,
       avatar: response.AvatarPath || backendData.avatarPath || user.avatar,
       bio: response.Bio || backendData.bio,
-      socialLinks: response.SocialLinks || backendData.socialLinks || [],
+      // ⚠️ SocialLinks остается из старого пользователя, если бекенд его не возвращает
       isVerified: response.IsVerified || user.isVerified || false,
-      createdAt: response.CreatedAt,
-      updatedAt: response.UpdatedAt,
-      deletedAt: response.DeletedAt,
       backendData: response
     };
     
