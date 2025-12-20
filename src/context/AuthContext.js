@@ -123,7 +123,7 @@ const login = async (email, password, userType) => {
       
       // Создаем объект пользователя для фронтенда
       const userData = {
-        id: userDataFromBackend?.Id || userDataFromBackend?.id || Date.now(),
+        id:userDataFromBackend?.Id || userDataFromBackend?.id || userDataFromBackend?.userId || userDataFromBackend?.UserId,
         name: userDataFromBackend?.Login || userDataFromBackend?.login || email.split('@')[0],
         email: userDataFromBackend?.Email || userDataFromBackend?.email || email,
         userType: formattedUserType,
@@ -284,7 +284,7 @@ const login = async (email, password, userType) => {
       
       // Преобразуем данные от бекенда в наш формат
       const userData = {
-        id: response.id || response.Id || Date.now(),
+        id: response.id || response.Id || response.user_id || response.UserId,
         name: response.name || response.login || response.email,
         email: response.email || response.Email,
         userType: response.type === 1 || response.UserType === "Advertiser" ? 'advertiser' : 'contentmaker',

@@ -1,12 +1,14 @@
 // components/ApplicationDetailsModal.js
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AspNetApiService from '../services/aspnetApi';
 import './ApplicationDetailsModal.css';
 import ConfirmModal from './ConfirmModal';
 
-function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
+function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete, onRefresh }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     description: application?.description || '',
@@ -86,48 +88,102 @@ function ApplicationDetailsModal({ application, onClose, onUpdate, onDelete }) {
     try {
       console.log('📝 Откликаемся на заявку:', {
         applicationId: application.applicationId,
-        message: applyMessage
+        message: applyMessage,
+        user: user?.id
       });
 
+      // 1. Создаем сделку
       const result = await AspNetApiService.createDeal(
         application.applicationId,
         applyMessage
       );
 
-      console.log('✅ Результат отклика:', result);
+      console.log('✅ Результат создания сделки:', result);
+      
+      if (result && (result.success || result.dealId || result.id)) {
+        // Получаем ID сделки
+        const dealId = result.dealId || result.id || result.deal?.id;
+        
+        console.log('✅ ID созданной сделки:', dealId);
+        
+        // 2. Обновляем статус заявки на "В работе" (1)
+        try {
+          console.log('🔄 Обновляем статус заявки на "В работе"...');
+          
+          const updateResult = await AspNetApiService.updateApplication(
+            application.applicationId,
+            {
+              description: application.description,
+              cost: application.cost,
+              status: 1 // Статус "В работе"
+            }
+          );
+          
+          console.log('✅ Статус заявки обновлен:', updateResult);
+          
+        } catch (updateError) {
+          console.error('⚠️ Не удалось обновить статус заявки:', updateError);
+          // Продолжаем, так как сделка уже создана
+        }
 
-      if (result && (result.success || result.dealId)) {
         setMessage({
           type: 'success',
-          text: '✅ Ваш отклик успешно отправлен! Заявка переведена в статус "В работе".'
+          text: '✅ Ваш отклик успешно отправлен! Создана сделка.'
         });
 
+        // 3. Обновляем заявку в родительском компоненте
         if (onUpdate) {
           onUpdate({
             ...application,
-            status: 1
+            status: 1 // Статус "В работе"
           });
         }
 
-        setTimeout(() => {
-          onClose();
-        }, 2000);
+        // 4. Перезагружаем список заявок
+        if (onRefresh) {
+          setTimeout(() => {
+            onRefresh();
+          }, 1000);
+        }
 
+        // 5. Если есть ID сделки - перенаправляем на страницу сделки
+        if (dealId) {
+          setTimeout(() => {
+            onClose();
+            navigate(`/deal/${dealId}`);
+          }, 2000);
+        } else {
+          // Если нет dealId, пробуем найти сделку по applicationId
+          setTimeout(async () => {
+            try {
+              const dealInfo = await AspNetApiService.getDealByApplicationId(application.applicationId);
+              if (dealInfo && (dealInfo.dealId || dealInfo.id)) {
+                onClose();
+                navigate(`/deal/${dealInfo.dealId || dealInfo.id}`);
+              }
+            } catch (findError) {
+              console.error('Не удалось найти сделку:', findError);
+            }
+          }, 2000);
+        }
       } else {
-        throw new Error('Не удалось отправить отклик');
+        throw new Error('Не удалось создать сделку');
       }
 
     } catch (error) {
       console.error('❌ Ошибка отклика на заявку:', error);
+      console.error('❌ Подробности ошибки:', error.message);
 
       let errorMessage = 'Произошла ошибка при отправке отклика';
 
-      if (error.message.includes('не найдена')) {
+      if (error.message.includes('не найдена') || error.message.includes('not found') || error.message.includes('404')) {
         errorMessage = '❌ Заявка не найдена';
-      } else if (error.message.includes('уже существует')) {
+      } else if (error.message.includes('уже существует') || error.message.includes('already exists') || error.message.includes('409')) {
         errorMessage = '❌ Вы уже откликнулись на эту заявку';
-      } else if (error.message.includes('нет прав')) {
+      } else if (error.message.includes('нет прав') || error.message.includes('403')) {
         errorMessage = '❌ У вас нет прав для отклика на эту заявку';
+      } else if (error.message.includes('Контент-мейкер не найден')) {
+        errorMessage = '❌ Контент-мейкер не найден. Проверьте ваш профиль.';
       }
 
       setMessage({ type: 'error', text: errorMessage });

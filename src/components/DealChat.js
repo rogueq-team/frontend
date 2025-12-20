@@ -8,26 +8,31 @@ import './DealChat.css';
 const DealChat = () => {
   const { dealId } = useParams();
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, updateUserInfo } = useAuth();
   
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [dealInfo, setDealInfo] = useState(null);
+  const [applicationInfo, setApplicationInfo] = useState(null);
+  const [otherUserInfo, setOtherUserInfo] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [isSending, setIsSending] = useState(false);
   const [page, setPage] = useState(1);
   const [totalMessages, setTotalMessages] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [isProcessingDeal, setIsProcessingDeal] = useState(false);
   const pageSize = 20;
   
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
-  // Функция для скролла к последнему сообщению (самому новому)
+  // Функция для скролла к последнему сообщению
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
@@ -50,7 +55,6 @@ const DealChat = () => {
   // Автоматический скролл при добавлении новых сообщений
   useEffect(() => {
     if (!isLoadingMore && messages.length > 0) {
-      // Прокручиваем к низу только если пользователь уже был внизу
       const container = messagesContainerRef.current;
       if (container) {
         const isNearBottom = container.scrollHeight - container.clientHeight - container.scrollTop < 100;
@@ -60,6 +64,58 @@ const DealChat = () => {
       }
     }
   }, [messages, isLoadingMore, scrollToBottom]);
+
+  // Загрузка информации о сделке и связанных данных
+  const loadDealInfo = async () => {
+  try {
+    console.log('📋 Загрузка информации о сделке...');
+    
+    // Получаем информацию о сделке
+    const dealResponse = await AspNetApiService.getDeal(dealId);
+    console.log('✅ Информация о сделке:', dealResponse);
+    setDealInfo(dealResponse);
+    
+    // Получаем информацию о заявке
+    if (dealResponse.applicationId) {
+      try {
+        const appResponse = await AspNetApiService.getApplicationById(dealResponse.applicationId);
+        console.log('✅ Информация о заявке:', appResponse);
+        setApplicationInfo(appResponse);
+      } catch (appError) {
+        console.error('Error loading application info:', appError);
+      }
+    }
+    
+    console.log('👤 Текущий пользователь:', user);
+    
+    // Определяем ID другого пользователя
+    let otherUserId = null;
+    if (dealResponse.advertiserId === user?.id) {
+      otherUserId = dealResponse.platformId;
+      console.log('🔹 Пользователь является рекламодателем в сделке');
+    } else if (dealResponse.platformId === user?.id) {
+      otherUserId = dealResponse.advertiserId;
+      console.log('🔹 Пользователь является контент-мейкером в сделке');
+    } else {
+      console.log('⚠️ Пользователь не участвует в сделке');
+    }
+    
+    // Загружаем информацию о другом пользователе
+    if (otherUserId) {
+      try {
+        const userResponse = await AspNetApiService.getUser(otherUserId);
+        console.log('✅ Информация о другом пользователе:', userResponse);
+        setOtherUserInfo(userResponse);
+      } catch (userError) {
+        console.error('Error loading other user info:', userError);
+      }
+    }
+    
+  } catch (error) {
+    console.error('Error loading deal info:', error);
+    setError('Ошибка загрузки информации о сделке');
+  }
+};
 
   // Инициализация подключения к чату
   useEffect(() => {
@@ -80,13 +136,8 @@ const DealChat = () => {
         setIsLoading(true);
         setError('');
 
-        // Получаем информацию о сделке
-        try {
-          const dealResponse = await AspNetApiService.request(`/Deal/GetDeal/${dealId}`);
-          setDealInfo(dealResponse);
-        } catch (dealError) {
-          console.error('Error fetching deal info:', dealError);
-        }
+        // Загружаем информацию о сделке и связанных данных
+        await loadDealInfo();
 
         // Получаем токен
         const token = localStorage.getItem('authToken') || user.token;
@@ -100,16 +151,27 @@ const DealChat = () => {
         SignalRService.setOnReconnected(() => setConnectionStatus('connected'));
         SignalRService.setOnClose(() => setConnectionStatus('disconnected'));
 
-        // Начинаем подключение
+        // Начинаем подключение и ждем его установления
         await SignalRService.startConnection(cleanToken);
         setConnectionStatus('connected');
+        
+        // Ждем полного установления подключения
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Загружаем историю сообщений
+        // Загружаем историю сообщений ТОЛЬКО после установки подключения
         await loadMessageHistory(1);
 
       } catch (error) {
         console.error('Error initializing chat:', error);
         setError('Ошибка подключения к чату: ' + error.message);
+        
+        // Если SignalR не работает, пробуем загрузить через REST API
+        try {
+          console.log('🔄 SignalR failed, trying REST API...');
+          await loadMessageHistory(1);
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -123,7 +185,7 @@ const DealChat = () => {
     };
   }, [dealId, isAuthenticated, user?.token]);
 
-  // Загрузка истории сообщений
+  // Загрузка истории сообщений (остается такой же как в предыдущем ответе)
   const loadMessageHistory = async (pageNumber) => {
     try {
       console.log(`📜 Loading message history for deal ${dealId}, page ${pageNumber}`);
@@ -131,16 +193,21 @@ const DealChat = () => {
       const restoreScroll = preserveScrollPosition();
       setIsLoadingMore(pageNumber > 1);
       
-      // Вызываем метод хаба через SignalR
-      await SignalRService.getMessageHistory(dealId, pageNumber, pageSize);
+      // Проверяем подключение к SignalR
+      const isSignalRConnected = SignalRService.isConnected();
+      console.log(`🔗 SignalR connected: ${isSignalRConnected}`);
       
-      if (restoreScroll) {
-        setTimeout(restoreScroll, 0);
+      if (isSignalRConnected) {
+        // Вызываем метод хаба через SignalR
+        await SignalRService.getMessageHistory(dealId, pageNumber, pageSize);
+        return;
       }
       
+      console.log('🔄 SignalR not connected, using REST API fallback...');
+      throw new Error('SignalR not connected');
+      
     } catch (error) {
-      console.error('Error loading message history:', error);
-      setError('Ошибка загрузки истории сообщений: ' + error.message);
+      console.error('Error in SignalR or fallback:', error);
       
       // Если через SignalR не работает, пробуем через REST API
       try {
@@ -148,7 +215,6 @@ const DealChat = () => {
         const response = await AspNetApiService.request(`/Messages/GetByDeal/${dealId}?page=${pageNumber}&pageSize=${pageSize}`);
         
         if (response && Array.isArray(response)) {
-          // Сортируем сообщения по дате (от старых к новым) прямо с сервера
           const sortedResponse = [...response].sort((a, b) => {
             const dateA = new Date(a.createdAt || a.CreatedAt || 0);
             const dateB = new Date(b.createdAt || b.CreatedAt || 0);
@@ -168,6 +234,7 @@ const DealChat = () => {
         }
       } catch (apiError) {
         console.error('API error too:', apiError);
+        setError('Ошибка загрузки истории сообщений. Проверьте подключение.');
       }
     } finally {
       if (pageNumber > 1) {
@@ -176,7 +243,7 @@ const DealChat = () => {
     }
   };
 
-  // Обработчик нового сообщения
+  // Обработчик нового сообщения (остается такой же)
   const handleNewMessage = (messageData) => {
     console.log('📨 Received new message:', messageData);
     
@@ -204,16 +271,17 @@ const DealChat = () => {
       console.warn('Unknown message format:', messageData);
       return;
     }
-    // Добавляем новое сообщение в конец массива (самое новое)
+    
     setMessages(prev => [...prev, newMsg]);
   };
 
-  // Обработчик истории сообщений
+  // Обработчик истории сообщений (остается такой же)
   const handleMessageHistory = (historyData) => {
     console.log('📜 Received message history:', historyData);
     
     if (!historyData) {
       console.error('History data is null or undefined');
+      handleFormattedMessages([], 0, 1);
       return;
     }
     
@@ -230,10 +298,10 @@ const DealChat = () => {
       totalCount = historyData.totalCount || historyData.TotalCount || messagesArray.length;
     } else {
       console.error('Unknown history data format:', historyData);
-      return;
+      messagesArray = [historyData];
+      totalCount = 1;
     }
     
-    // Сортируем сообщения по дате (от старых к новым)
     const sortedMessages = [...messagesArray].sort((a, b) => {
       const dateA = new Date(a.Timestamp || a.timestamp || a.CreatedAt || a.createdAt || 0);
       const dateB = new Date(b.Timestamp || b.timestamp || b.CreatedAt || b.createdAt || 0);
@@ -261,11 +329,9 @@ const DealChat = () => {
   // Обработка отформатированных сообщений
   const handleFormattedMessages = (formattedMessages, totalCount, currentPage) => {
     if (currentPage === 1) {
-      // Для первой страницы просто устанавливаем сообщения
       setMessages(formattedMessages);
-      setTimeout(() => scrollToBottom(), 100); // Скроллим к самому новому сообщению
+      setTimeout(() => scrollToBottom(), 100);
     } else {
-      // Для последующих страниц добавляем старые сообщения в начало
       setMessages(prev => [...formattedMessages, ...prev]);
     }
     
@@ -285,7 +351,7 @@ const DealChat = () => {
     setError(`Ошибка чата: ${error}`);
   };
 
-  // Отправка сообщения
+  // Отправка сообщения (остается такой же)
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
@@ -308,14 +374,13 @@ const DealChat = () => {
       console.log('📤 Sending message:', messageDto);
       await SignalRService.sendMessage(messageDto);
       
-      // Добавляем сообщение локально для мгновенного отображения
       const tempMessage = {
         id: Date.now(),
         text: newMessage.trim(),
         senderId: user.id,
         senderName: user.name,
         timestamp: new Date().toISOString(),
-        isOwn: false //пока пусть будет так, надо поправить бек, чтобы isown работал
+        isOwn: false
       };
       
       setMessages(prev => [...prev, tempMessage]);
@@ -380,7 +445,7 @@ const DealChat = () => {
     }
   };
 
-  // Группировка сообщений по датам (уже отсортированы от старых к новым)
+  // Группировка сообщений по датам
   const groupMessagesByDate = (messages) => {
     const groups = {};
     
@@ -426,7 +491,6 @@ const DealChat = () => {
       const response = await AspNetApiService.request(`/Messages/GetByDeal/${dealId}?page=1&pageSize=${pageSize}`);
       
       if (response && Array.isArray(response)) {
-        // Сортируем сообщения по дате (от старых к новым)
         const sortedResponse = [...response].sort((a, b) => {
           const dateA = new Date(a.createdAt || a.CreatedAt || 0);
           const dateB = new Date(b.createdAt || b.CreatedAt || 0);
@@ -453,6 +517,255 @@ const DealChat = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ СДЕЛКОЙ
+
+  // Проверяем, является ли текущий пользователь рекламодателем в этой сделке
+  const isAdvertiserInDeal = () => {
+    console.log('🔍 Проверка является ли рекламодателем:');
+    console.log('  - user?.id:', user?.id);
+    console.log('  - dealInfo?.advertiserId:', dealInfo?.advertiserId);
+    console.log('  - result:', user?.id === dealInfo?.advertiserId);
+    return user?.id === dealInfo?.advertiserId;
+  };
+
+  // Проверяем, является ли текущий пользователь контент-мейкером в этой сделке
+  const isContentMakerInDeal = () => {
+    return user?.id === dealInfo?.platformId;
+  };
+
+  // Получаем стоимость сделки из информации о заявке
+  const getDealCost = () => {
+    return applicationInfo?.cost || 0;
+  };
+
+  // Подготовка диалога подтверждения
+  const showConfirmationDialog = (action) => {
+    setConfirmAction(action);
+    setShowConfirmDialog(true);
+  };
+
+  // Закрытие диалога подтверждения
+  const closeConfirmationDialog = () => {
+    setShowConfirmDialog(false);
+    setConfirmAction(null);
+  };
+
+  // Обновление баланса пользователя
+  const updateUserBalance = async (userId, amount, isIncrement = true) => {
+    try {
+      console.log(`🔄 Обновление баланса пользователя ${userId} на ${amount} (${isIncrement ? '+' : '-'})`);
+      
+      // Получаем текущую информацию о пользователе
+      const userInfo = await AspNetApiService.getUser(userId);
+      const currentBalance = userInfo?.balance || 0;
+      
+      // Рассчитываем новый баланс
+      const newBalance = isIncrement 
+        ? currentBalance + amount 
+        : currentBalance - amount;
+      
+      // Обновляем информацию о пользователе через API
+      const updateData = {
+        name: userInfo.name,
+        login: userInfo.login,
+        email: userInfo.email,
+        role: userInfo.role,
+        type: userInfo.type,
+        balance: newBalance,
+        avatarPath: userInfo.avatarPath || null,
+        bio: userInfo.bio || null,
+        socialLinks: userInfo.socialLinks || []
+      };
+      
+      console.log('📤 Данные для обновления пользователя:', updateData);
+      
+      const response = await AspNetApiService.updateUserInfo(updateData);
+      
+      if (response && (response.success !== false)) {
+        console.log(`✅ Баланс пользователя ${userId} обновлен: ${currentBalance} → ${newBalance}`);
+        return true;
+      } else {
+        console.error('❌ Ошибка обновления баланса:', response);
+        return false;
+      }
+      
+    } catch (error) {
+      console.error('❌ Ошибка при обновлении баланса:', error);
+      return false;
+    }
+  };
+
+  // Обновление статуса сделки
+  const updateDealStatus = async (newStatus) => {
+    try {
+      console.log(`🔄 Обновление статуса сделки ${dealId} на ${newStatus}`);
+      
+      const response = await AspNetApiService.updateDealStatus(dealId, newStatus);
+      
+      if (response && (response.success !== false)) {
+        console.log(`✅ Статус сделки обновлен: ${newStatus}`);
+        
+        // Обновляем локальную информацию о сделке
+        setDealInfo(prev => ({
+          ...prev,
+          status: newStatus
+        }));
+        
+        return true;
+      } else {
+        console.error('❌ Ошибка обновления статуса сделки:', response);
+        return false;
+      }
+      
+    } catch (error) {
+      console.error('❌ Ошибка при обновлении статуса сделки:', error);
+      return false;
+    }
+  };
+
+  // Обработка отмены сделки
+  const handleCancelDeal = async () => {
+    setIsProcessingDeal(true);
+    
+    try {
+      const dealCost = getDealCost();
+      
+      // 1. Возвращаем деньги рекламодателю (увеличиваем баланс)
+      const advertiserUpdated = await updateUserBalance(
+        dealInfo.advertiserId,
+        dealCost,
+        true // increment
+      );
+      
+      if (!advertiserUpdated) {
+        throw new Error('Не удалось вернуть деньги рекламодателю');
+      }
+      
+      // 2. Обновляем статус сделки на "Отменена" (3)
+      const statusUpdated = await updateDealStatus(3);
+      
+      if (!statusUpdated) {
+        throw new Error('Не удалось обновить статус сделки');
+      }
+      
+      // 3. Отправляем системное сообщение в чат
+      const systemMessage = `Сделка отменена. ${dealCost} ₽ возвращены на баланс рекламодателя.`;
+      await sendSystemMessage(systemMessage);
+      
+      alert('✅ Сделка отменена. Деньги возвращены на баланс рекламодателя.');
+      
+      // 4. Закрываем диалог подтверждения
+      closeConfirmationDialog();
+      
+    } catch (error) {
+      console.error('❌ Ошибка отмены сделки:', error);
+      alert(`❌ Не удалось отменить сделку: ${error.message}`);
+    } finally {
+      setIsProcessingDeal(false);
+    }
+  };
+
+  // Обработка завершения сделки
+  const handleCompleteDeal = async () => {
+    setIsProcessingDeal(true);
+    
+    try {
+      const dealCost = getDealCost();
+      
+      // 1. Списываем деньги с баланса рекламодателя
+      const advertiserUpdated = await updateUserBalance(
+        dealInfo.advertiserId,
+        dealCost,
+        false // decrement
+      );
+      
+      if (!advertiserUpdated) {
+        throw new Error('Не удалось списать деньги с баланса рекламодателя');
+      }
+      
+      // 2. Начисляем деньги на баланс контент-мейкера
+      const contentMakerUpdated = await updateUserBalance(
+        dealInfo.platformId,
+        dealCost,
+        true // increment
+      );
+      
+      if (!contentMakerUpdated) {
+        throw new Error('Не удалось начислить деньги контент-мейкеру');
+      }
+      
+      // 3. Обновляем статус сделки на "Завершена" (2)
+      const statusUpdated = await updateDealStatus(2);
+      
+      if (!statusUpdated) {
+        throw new Error('Не удалось обновить статус сделки');
+      }
+      
+      // 4. Отправляем системное сообщение в чат
+      const systemMessage = `Сделка завершена. ${dealCost} ₽ переведены контент-мейкеру.`;
+      await sendSystemMessage(systemMessage);
+      
+      alert('✅ Сделка завершена. Деньги переведены контент-мейкеру.');
+      
+      // 5. Закрываем диалог подтверждения
+      closeConfirmationDialog();
+      
+    } catch (error) {
+      console.error('❌ Ошибка завершения сделки:', error);
+      alert(`❌ Не удалось завершить сделку: ${error.message}`);
+    } finally {
+      setIsProcessingDeal(false);
+    }
+  };
+
+  // Отправка системного сообщения в чат
+  const sendSystemMessage = async (text) => {
+    try {
+      if (SignalRService.isConnected()) {
+        const messageDto = {
+          DealId: dealId,
+          Text: text,
+          IsSystem: true
+        };
+        
+        await SignalRService.sendMessage(messageDto);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка отправки системного сообщения:', error);
+    }
+  };
+
+  // Обработчик подтверждения действия
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return;
+    
+    if (confirmAction === 'cancel') {
+      await handleCancelDeal();
+    } else if (confirmAction === 'complete') {
+      await handleCompleteDeal();
+    }
+  };
+
+  // Проверка, можно ли управлять сделкой
+  const canManageDeal = () => {
+    // Проверяем что сделка активна (статус 1 - "В работе")
+    const isDealActive = dealInfo?.status === 1;
+  
+    // Проверяем что пользователь - рекламодатель в этой сделке
+    const isDealAdvertiser = isAdvertiserInDeal();
+    
+    console.log('🔍 Проверка прав управления сделкой:');
+    console.log('  - dealInfo:', dealInfo);
+    console.log('  - dealInfo?.status:', dealInfo?.status);
+    console.log('  - isDealActive:', isDealActive);
+    console.log('  - user?.id:', user?.id);
+    console.log('  - dealInfo?.advertiserId:', dealInfo?.advertiserId);
+    console.log('  - isDealAdvertiser:', isDealAdvertiser);
+    console.log('  - canManageDeal:', isDealActive && isDealAdvertiser);
+    
+    return isDealActive && isDealAdvertiser;
   };
 
   if (isLoading) {
@@ -488,27 +801,58 @@ const DealChat = () => {
         <div className="deal-info">
           <h2>Чат по сделке #{dealId?.substring(0, 8)}</h2>
           {dealInfo && (
-            <p className="deal-details">
-              {dealInfo.description || 'Обсуждение сделки'}
-            </p>
+            <div className="deal-details">
+              <p>{dealInfo.description || 'Обсуждение сделки'}</p>
+              {applicationInfo && (
+                <p className="deal-cost">
+                  Стоимость: <strong>{applicationInfo.cost?.toLocaleString('ru-RU')} ₽</strong>
+                </p>
+              )}
+              {otherUserInfo && (
+                <p className="other-user">
+                  Собеседник: <strong>{otherUserInfo.name}</strong> ({otherUserInfo.userType === 1 ? 'Рекламодатель' : 'Контент-мейкер'})
+                </p>
+              )}
+            </div>
           )}
         </div>
         
-        <div className="connection-status">
-          <span className={`status-indicator ${connectionStatus}`}>
-            {connectionStatus === 'connected' && '🟢 Онлайн'}
-            {connectionStatus === 'reconnecting' && '🟡 Переподключение...'}
-            {connectionStatus === 'disconnected' && '🔴 Офлайн'}
-          </span>
-          {connectionStatus === 'disconnected' && (
-            <button 
-              className="retry-button small"
-              onClick={handleRetryConnection}
-              style={{ marginLeft: '10px' }}
-            >
-              Подключиться
-            </button>
+        <div className="deal-actions">
+          {canManageDeal() && (
+            <div className="action-buttons">
+              <button 
+                className="deal-action-btn cancel-btn"
+                onClick={() => showConfirmationDialog('cancel')}
+                disabled={isProcessingDeal || dealInfo?.status !== 1}
+              >
+                ❌ Отменить сделку
+              </button>
+              <button 
+                className="deal-action-btn complete-btn"
+                onClick={() => showConfirmationDialog('complete')}
+                disabled={isProcessingDeal || dealInfo?.status !== 1}
+              >
+                ✅ Завершить сделку
+              </button>
+            </div>
           )}
+          
+          <div className="connection-status">
+            <span className={`status-indicator ${connectionStatus}`}>
+              {connectionStatus === 'connected' && '🟢 Онлайн'}
+              {connectionStatus === 'reconnecting' && '🟡 Переподключение...'}
+              {connectionStatus === 'disconnected' && '🔴 Офлайн'}
+            </span>
+            {connectionStatus === 'disconnected' && (
+              <button 
+                className="retry-button small"
+                onClick={handleRetryConnection}
+                style={{ marginLeft: '10px' }}
+              >
+                Подключиться
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -518,6 +862,50 @@ const DealChat = () => {
           <div className="error-actions">
             <button onClick={handleRetryConnection}>Попробовать снова</button>
             <button onClick={loadMessagesDirectly}>Загрузить сообщения напрямую</button>
+          </div>
+        </div>
+      )}
+
+      {/* Диалог подтверждения */}
+      {showConfirmDialog && (
+        <div className="confirmation-dialog-overlay">
+          <div className="confirmation-dialog">
+            <h3>Подтвердите действие</h3>
+            
+            {confirmAction === 'cancel' && (
+              <>
+                <p>Вы уверены, что хотите отменить сделку?</p>
+                <p className="dialog-detail">
+                  При отмене сделки <strong>{getDealCost().toLocaleString('ru-RU')} ₽</strong> будут возвращены на баланс рекламодателя.
+                </p>
+              </>
+            )}
+            
+            {confirmAction === 'complete' && (
+              <>
+                <p>Вы уверены, что хотите завершить сделку?</p>
+                <p className="dialog-detail">
+                  При завершении сделки <strong>{getDealCost().toLocaleString('ru-RU')} ₽</strong> будут переведены контент-мейкеру.
+                </p>
+              </>
+            )}
+            
+            <div className="dialog-actions">
+              <button 
+                className="dialog-btn confirm-btn"
+                onClick={handleConfirmAction}
+                disabled={isProcessingDeal}
+              >
+                {isProcessingDeal ? 'Обработка...' : 'Подтвердить'}
+              </button>
+              <button 
+                className="dialog-btn cancel-btn"
+                onClick={closeConfirmationDialog}
+                disabled={isProcessingDeal}
+              >
+                Отмена
+              </button>
+            </div>
           </div>
         </div>
       )}

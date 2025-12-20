@@ -21,7 +21,7 @@ function Header() {
     <header className="main-header">
       <div className="header-content">
         <Link to="/" className="header-title">
-          YourLogo
+          BrandConnect
         </Link>
         
         <nav className="header-nav">

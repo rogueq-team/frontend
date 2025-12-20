@@ -521,15 +521,7 @@ async deleteApplication(applicationId) {
   }
 }
 
-async createDeal(applicationId, description = "") {
-  return this.request(`/Deal/CreateDeal?applicationId=${applicationId}&description=${encodeURIComponent(description)}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({}) // Пустое тело, так как параметры в query string
-  });
-}
+
 
   async updateUserInfo(userData) {
     return this.request('/User/UpdateInformation', {
@@ -566,14 +558,83 @@ async createDeal(applicationId, description = "") {
 
 
   // 📦 РАБОТА СО СДЕЛКАМИ (DEALS)
+  async createDeal(applicationId, description = "") {
+  try {
+    console.log('🤝 Создание сделки для заявки:', applicationId);
+    
+    const response = await fetch(`${this.baseUrl}/Deal/CreateDeal?applicationId=${applicationId}&description=${encodeURIComponent(description)}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+      body: JSON.stringify({})
+    });
+
+    console.log('🤝 Response status:', response.status);
+    
+    if (response.status === 200 || response.status === 201) {
+      const responseText = await response.text();
+      console.log('🤝 Response text:', responseText);
+      
+      let data;
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+          console.log('✅ Сделка создана:', data);
+        } catch {
+          data = { success: true, message: responseText };
+        }
+      } else {
+        data = { success: true };
+      }
+      
+      return data;
+    }
+    
+    const errorText = await response.text();
+    console.error('❌ Error creating deal:', errorText);
+    
+    let errorMessage = 'Ошибка создания сделки';
+    if (errorText) {
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.message || errorData.error || errorText;
+      } catch {
+        errorMessage = errorText;
+      }
+    }
+    
+    throw new Error(errorMessage);
+    
+  } catch (error) {
+    console.error('❌ API Error в createDeal:', error);
+    throw error;
+  }
+}
+      
+
+
   async getDeal(dealId) {
     return this.request(`/Deal/GetDeal/${dealId}`, {
       method: 'GET'
     });
   }
 
+  async getDealByApplicationId(applicationId) {
+  return this.request(`/Deal/GetByApplication/${applicationId}`, {
+    method: 'GET'
+  });
+}
+
   async getUserDeals() {
     return this.request('/Deal/GetUserDeals', {
+      method: 'GET'
+    });
+  }
+
+  async getAllDeals() {
+    return this.request('/Deal/GetAll', {
       method: 'GET'
     });
   }
