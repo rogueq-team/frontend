@@ -136,7 +136,10 @@ function Dashboard() {
               <div className="stat-card">
                 <h3>Баланс</h3>
                 <p className="stat-value">{user.balance.toLocaleString()} ₽</p>
-                <button className="primary-btn">
+                <button 
+                  className="primary-btn"
+                  onClick={() => navigate('/add-funds')}
+                >
                   {user.userType === 'advertiser' ? 'Пополнить' : 'Вывести'}
                 </button>
               </div>

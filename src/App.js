@@ -12,6 +12,7 @@ import Contacts from './components/Contacts';
 import Applications from './components/Applications';
 import CreateApplication from './components/CreateApplication';
 import DealChat from './components/DealChat';
+import AddFunds from './components/AddFunds';
 import './App.css';
 
 const ProtectedRoute = ({ children }) => {
@@ -35,6 +36,8 @@ function AppContent() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/settings" element={ <Settings />} />
           <Route path="/deal/:dealId" element={<DealChat />} />
+          <Route path="/add-funds" element={<AddFunds />} />
+
         </Routes>
       </main>
       <Footer />

@@ -8,6 +8,7 @@ class AspNetApiService {
 
   async request(endpoint, options = {}) {
   const url = `${this.baseUrl}${endpoint}`;
+  console.log(`🌐 ${endpoint} запрос к: ${url}`);
   
   const config = {
     headers: {
@@ -176,7 +177,7 @@ class AspNetApiService {
           email: userData.email,
           password: userData.password,
           role: userData.role,
-          type: userData.type
+          type: userData.userType
         }),
       });
 
@@ -639,11 +640,8 @@ async deleteApplication(applicationId) {
     });
   }
 
-  async updateDealStatus(dealId, status) {
-    return this.request(`/Deal/UpdateStatus/${dealId}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status })
-    });
+  static async updateDealStatus(dealId, status) {
+    return this.request('POST', `/Deal/ChangeStatus?dealId=${dealId}&status=${status}`);
   }
 }
 

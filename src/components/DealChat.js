@@ -67,55 +67,55 @@ const DealChat = () => {
 
   // Загрузка информации о сделке и связанных данных
   const loadDealInfo = async () => {
-  try {
-    console.log('📋 Загрузка информации о сделке...');
-    
-    // Получаем информацию о сделке
-    const dealResponse = await AspNetApiService.getDeal(dealId);
-    console.log('✅ Информация о сделке:', dealResponse);
-    setDealInfo(dealResponse);
-    
-    // Получаем информацию о заявке
-    if (dealResponse.applicationId) {
-      try {
-        const appResponse = await AspNetApiService.getApplicationById(dealResponse.applicationId);
-        console.log('✅ Информация о заявке:', appResponse);
-        setApplicationInfo(appResponse);
-      } catch (appError) {
-        console.error('Error loading application info:', appError);
+    try {
+      console.log('📋 Загрузка информации о сделке...');
+      
+      // Получаем информацию о сделке
+      const dealResponse = await AspNetApiService.getDeal(dealId);
+      console.log('✅ Информация о сделке:', dealResponse);
+      setDealInfo(dealResponse);
+      
+      // Получаем информацию о заявке
+      if (dealResponse.applicationId) {
+        try {
+          const appResponse = await AspNetApiService.getApplicationById(dealResponse.applicationId);
+          console.log('✅ Информация о заявке:', appResponse);
+          setApplicationInfo(appResponse);
+        } catch (appError) {
+          console.error('Error loading application info:', appError);
+        }
       }
-    }
-    
-    console.log('👤 Текущий пользователь:', user);
-    
-    // Определяем ID другого пользователя
-    let otherUserId = null;
-    if (dealResponse.advertiserId === user?.id) {
-      otherUserId = dealResponse.platformId;
-      console.log('🔹 Пользователь является рекламодателем в сделке');
-    } else if (dealResponse.platformId === user?.id) {
-      otherUserId = dealResponse.advertiserId;
-      console.log('🔹 Пользователь является контент-мейкером в сделке');
-    } else {
-      console.log('⚠️ Пользователь не участвует в сделке');
-    }
-    
-    // Загружаем информацию о другом пользователе
-    if (otherUserId) {
-      try {
-        const userResponse = await AspNetApiService.getUser(otherUserId);
-        console.log('✅ Информация о другом пользователе:', userResponse);
-        setOtherUserInfo(userResponse);
-      } catch (userError) {
-        console.error('Error loading other user info:', userError);
+      
+      console.log('👤 Текущий пользователь:', user);
+      
+      // Определяем ID другого пользователя
+      let otherUserId = null;
+      if (dealResponse.advertiserId === user?.id) {
+        otherUserId = dealResponse.platformId;
+        console.log('🔹 Пользователь является рекламодателем в сделке');
+      } else if (dealResponse.platformId === user?.id) {
+        otherUserId = dealResponse.advertiserId;
+        console.log('🔹 Пользователь является контент-мейкером в сделке');
+      } else {
+        console.log('⚠️ Пользователь не участвует в сделке');
       }
+      
+      // Загружаем информацию о другом пользователе
+      if (otherUserId) {
+        try {
+          const userResponse = await AspNetApiService.getUser(otherUserId);
+          console.log('✅ Информация о другом пользователе:', userResponse);
+          setOtherUserInfo(userResponse);
+        } catch (userError) {
+          console.error('Error loading other user info:', userError);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error loading deal info:', error);
+      setError('Ошибка загрузки информации о сделке');
     }
-    
-  } catch (error) {
-    console.error('Error loading deal info:', error);
-    setError('Ошибка загрузки информации о сделке');
-  }
-};
+  };
 
   // Инициализация подключения к чату
   useEffect(() => {
@@ -185,7 +185,7 @@ const DealChat = () => {
     };
   }, [dealId, isAuthenticated, user?.token]);
 
-  // Загрузка истории сообщений (остается такой же как в предыдущем ответе)
+  // Загрузка истории сообщений
   const loadMessageHistory = async (pageNumber) => {
     try {
       console.log(`📜 Loading message history for deal ${dealId}, page ${pageNumber}`);
@@ -243,7 +243,7 @@ const DealChat = () => {
     }
   };
 
-  // Обработчик нового сообщения (остается такой же)
+  // Обработчик нового сообщения
   const handleNewMessage = (messageData) => {
     console.log('📨 Received new message:', messageData);
     
@@ -275,7 +275,7 @@ const DealChat = () => {
     setMessages(prev => [...prev, newMsg]);
   };
 
-  // Обработчик истории сообщений (остается такой же)
+  // Обработчик истории сообщений
   const handleMessageHistory = (historyData) => {
     console.log('📜 Received message history:', historyData);
     
@@ -351,7 +351,7 @@ const DealChat = () => {
     setError(`Ошибка чата: ${error}`);
   };
 
-  // Отправка сообщения (остается такой же)
+  // Отправка сообщения
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
@@ -552,59 +552,19 @@ const DealChat = () => {
     setConfirmAction(null);
   };
 
-  // Обновление баланса пользователя
-  const updateUserBalance = async (userId, amount, isIncrement = true) => {
-    try {
-      console.log(`🔄 Обновление баланса пользователя ${userId} на ${amount} (${isIncrement ? '+' : '-'})`);
-      
-      // Получаем текущую информацию о пользователе
-      const userInfo = await AspNetApiService.getUser(userId);
-      const currentBalance = userInfo?.balance || 0;
-      
-      // Рассчитываем новый баланс
-      const newBalance = isIncrement 
-        ? currentBalance + amount 
-        : currentBalance - amount;
-      
-      // Обновляем информацию о пользователе через API
-      const updateData = {
-        name: userInfo.name,
-        login: userInfo.login,
-        email: userInfo.email,
-        role: userInfo.role,
-        type: userInfo.type,
-        balance: newBalance,
-        avatarPath: userInfo.avatarPath || null,
-        bio: userInfo.bio || null,
-        socialLinks: userInfo.socialLinks || []
-      };
-      
-      console.log('📤 Данные для обновления пользователя:', updateData);
-      
-      const response = await AspNetApiService.updateUserInfo(updateData);
-      
-      if (response && (response.success !== false)) {
-        console.log(`✅ Баланс пользователя ${userId} обновлен: ${currentBalance} → ${newBalance}`);
-        return true;
-      } else {
-        console.error('❌ Ошибка обновления баланса:', response);
-        return false;
-      }
-      
-    } catch (error) {
-      console.error('❌ Ошибка при обновлении баланса:', error);
-      return false;
-    }
-  };
-
+  // Обновление статуса сделки
   // Обновление статуса сделки
   const updateDealStatus = async (newStatus) => {
     try {
       console.log(`🔄 Обновление статуса сделки ${dealId} на ${newStatus}`);
+      const endpoint = `/Deal/ChangeStatus?dealId=${dealId}&status=${newStatus}`;
+      // Используем правильный эндпоинт согласно Swagger
+      const response = await AspNetApiService.request(endpoint, {method: 'POST'});
       
-      const response = await AspNetApiService.updateDealStatus(dealId, newStatus);
+      console.log('📊 Ответ сервера при обновлении статуса:', response);
       
-      if (response && (response.success !== false)) {
+      // Проверяем ответ сервера более гибко
+      if (response) {
         console.log(`✅ Статус сделки обновлен: ${newStatus}`);
         
         // Обновляем локальную информацию о сделке
@@ -615,48 +575,54 @@ const DealChat = () => {
         
         return true;
       } else {
-        console.error('❌ Ошибка обновления статуса сделки:', response);
+        console.error('❌ Пустой ответ от сервера при обновлении статуса');
         return false;
       }
       
     } catch (error) {
       console.error('❌ Ошибка при обновлении статуса сделки:', error);
+      console.error('Полная информация об ошибке:', {
+        dealId,
+        newStatus,
+        errorMessage: error.message,
+        errorStack: error.stack
+      });
       return false;
     }
   };
 
   // Обработка отмены сделки
   const handleCancelDeal = async () => {
-    setIsProcessingDeal(true);
+  setIsProcessingDeal(true);
+  
+  try {
+    console.log('🔍 Проверка данных перед отменой сделки:');
+    console.log('  - dealId:', dealId);
+    console.log('  - dealInfo:', dealInfo);
+    console.log('  - user.id:', user?.id);
+    console.log('  - user.backendData?.id:', user?.backendData?.id);
+    console.log('  - user.userType:', user?.userType);
+    console.log('  - user.isAdvertiser?', canManageDeal());
     
-    try {
-      const dealCost = getDealCost();
-      
-      // 1. Возвращаем деньги рекламодателю (увеличиваем баланс)
-      const advertiserUpdated = await updateUserBalance(
-        dealInfo.advertiserId,
-        dealCost,
-        true // increment
-      );
-      
-      if (!advertiserUpdated) {
-        throw new Error('Не удалось вернуть деньги рекламодателю');
-      }
-      
-      // 2. Обновляем статус сделки на "Отменена" (3)
-      const statusUpdated = await updateDealStatus(3);
+    // Проверим, совпадает ли dealId из URL с dealId в dealInfo
+    if (dealInfo && dealInfo.id) {
+      console.log('  - dealInfo.id:', dealInfo.id);
+      console.log('  - Совпадение dealId и dealInfo.id?', dealId === dealInfo.id);
+    }
+    
+    const statusUpdated = await updateDealStatus(3);
       
       if (!statusUpdated) {
         throw new Error('Не удалось обновить статус сделки');
       }
       
-      // 3. Отправляем системное сообщение в чат
-      const systemMessage = `Сделка отменена. ${dealCost} ₽ возвращены на баланс рекламодателя.`;
+      // Отправляем системное сообщение в чат
+      const systemMessage = `Сделка отменена.`;
       await sendSystemMessage(systemMessage);
       
-      alert('✅ Сделка отменена. Деньги возвращены на баланс рекламодателя.');
+      alert('✅ Сделка отменена.');
       
-      // 4. Закрываем диалог подтверждения
+      // Закрываем диалог подтверждения
       closeConfirmationDialog();
       
     } catch (error) {
@@ -668,52 +634,37 @@ const DealChat = () => {
   };
 
   // Обработка завершения сделки
+  // Обработка завершения сделки
   const handleCompleteDeal = async () => {
     setIsProcessingDeal(true);
     
     try {
-      const dealCost = getDealCost();
+      console.log('🟢 Начало завершения сделки');
+      console.log('📋 Параметры:', { dealId, dealCost: getDealCost() });
       
-      // 1. Списываем деньги с баланса рекламодателя
-      const advertiserUpdated = await updateUserBalance(
-        dealInfo.advertiserId,
-        dealCost,
-        false // decrement
-      );
-      
-      if (!advertiserUpdated) {
-        throw new Error('Не удалось списать деньги с баланса рекламодателя');
-      }
-      
-      // 2. Начисляем деньги на баланс контент-мейкера
-      const contentMakerUpdated = await updateUserBalance(
-        dealInfo.platformId,
-        dealCost,
-        true // increment
-      );
-      
-      if (!contentMakerUpdated) {
-        throw new Error('Не удалось начислить деньги контент-мейкеру');
-      }
-      
-      // 3. Обновляем статус сделки на "Завершена" (2)
+      // ТОЛЬКО обновляем статус сделки на "Завершена" (2)
+      console.log('🔄 Вызов updateDealStatus с status=2');
       const statusUpdated = await updateDealStatus(2);
+      console.log('📊 Результат updateDealStatus:', statusUpdated);
       
       if (!statusUpdated) {
+        console.error('❌ updateDealStatus вернул false');
         throw new Error('Не удалось обновить статус сделки');
       }
       
-      // 4. Отправляем системное сообщение в чат
-      const systemMessage = `Сделка завершена. ${dealCost} ₽ переведены контент-мейкеру.`;
+      // Отправляем системное сообщение в чат
+      const systemMessage = `Сделка завершена.`;
+      console.log('📤 Отправка системного сообщения:', systemMessage);
       await sendSystemMessage(systemMessage);
       
-      alert('✅ Сделка завершена. Деньги переведены контент-мейкеру.');
+      alert('✅ Сделка завершена.');
       
-      // 5. Закрываем диалог подтверждения
+      // Закрываем диалог подтверждения
       closeConfirmationDialog();
       
     } catch (error) {
       console.error('❌ Ошибка завершения сделки:', error);
+      console.error('Стек ошибки:', error.stack);
       alert(`❌ Не удалось завершить сделку: ${error.message}`);
     } finally {
       setIsProcessingDeal(false);
@@ -750,22 +701,22 @@ const DealChat = () => {
 
   // Проверка, можно ли управлять сделкой
   const canManageDeal = () => {
-    // Проверяем что сделка активна (статус 1 - "В работе")
-    const isDealActive = dealInfo?.status === 1;
-  
-    // Проверяем что пользователь - рекламодатель в этой сделке
-    const isDealAdvertiser = isAdvertiserInDeal();
+    // 1. Проверяем тип пользователя из backendData
+    const userTypeFromBackend = user?.backendData?.type; // 1 = advertiser, 0 = contentmaker
+    const isAdvertiser = userTypeFromBackend === 1 || user?.userType === 'advertiser';
     
-    console.log('🔍 Проверка прав управления сделкой:');
-    console.log('  - dealInfo:', dealInfo);
+    console.log('🔍 Проверка типа пользователя:');
+    console.log('  - userTypeFromBackend:', userTypeFromBackend);
+    console.log('  - user?.userType:', user?.userType);
+    console.log('  - isAdvertiser:', isAdvertiser);
+    
+    // 2. Проверяем статус сделки (разрешаем для статусов 0 и 1)
+    const isDealActive = dealInfo?.status === 0 || dealInfo?.status === 1;
+    
     console.log('  - dealInfo?.status:', dealInfo?.status);
     console.log('  - isDealActive:', isDealActive);
-    console.log('  - user?.id:', user?.id);
-    console.log('  - dealInfo?.advertiserId:', dealInfo?.advertiserId);
-    console.log('  - isDealAdvertiser:', isDealAdvertiser);
-    console.log('  - canManageDeal:', isDealActive && isDealAdvertiser);
     
-    return isDealActive && isDealAdvertiser;
+    return isAdvertiser && isDealActive;
   };
 
   if (isLoading) {
@@ -818,24 +769,39 @@ const DealChat = () => {
         </div>
         
         <div className="deal-actions">
-          {canManageDeal() && (
-            <div className="action-buttons">
-              <button 
-                className="deal-action-btn cancel-btn"
-                onClick={() => showConfirmationDialog('cancel')}
-                disabled={isProcessingDeal || dealInfo?.status !== 1}
-              >
-                ❌ Отменить сделку
-              </button>
-              <button 
-                className="deal-action-btn complete-btn"
-                onClick={() => showConfirmationDialog('complete')}
-                disabled={isProcessingDeal || dealInfo?.status !== 1}
-              >
-                ✅ Завершить сделку
-              </button>
-            </div>
-          )}
+          {(() => {
+            const canManage = canManageDeal();
+            console.log('🎯 Рендеринг кнопок управления:');
+            console.log('  - canManage:', canManage);
+            console.log('  - isProcessingDeal:', isProcessingDeal);
+            console.log('  - dealInfo?.status:', dealInfo?.status);
+            console.log('  - Кнопки должны быть показаны?:', canManage);
+            
+            return canManage ? (
+              <div className="action-buttons">
+                <button 
+                  className="deal-action-btn cancel-btn"
+                  onClick={() => {
+                    console.log('🟡 Нажата кнопка "Отменить сделку"');
+                    showConfirmationDialog('cancel');
+                  }}
+                  disabled={isProcessingDeal}
+                >
+                  {isProcessingDeal ? '⏳ Обработка...' : '❌ Отменить сделку'}
+                </button>
+                <button 
+                  className="deal-action-btn complete-btn"
+                  onClick={() => {
+                    console.log('🟢 Нажата кнопка "Завершить сделку"');
+                    showConfirmationDialog('complete');
+                  }}
+                  disabled={isProcessingDeal}
+                >
+                  {isProcessingDeal ? '⏳ Обработка...' : '✅ Завершить сделку'}
+                </button>
+              </div>
+            ) : null;
+          })()}
           
           <div className="connection-status">
             <span className={`status-indicator ${connectionStatus}`}>
